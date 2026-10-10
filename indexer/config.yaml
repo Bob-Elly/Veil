@@ -1,0 +1,43 @@
+name: veil-indexer
+contracts:
+  - name: VeilPool
+    abi_file_path: abis/VeilPool.json
+    events:
+      - event: NewCommitment(uint256 commitment, uint256 index, bytes encryptedOutput)
+        field_selection:
+          transaction_fields:
+            - hash
+      - event: NewNullifier(uint256 nullifier)
+  - name: StreamVaultFactory
+    abi_file_path: abis/StreamVaultFactory.json
+    events:
+      - event: CampaignCreated(address indexed vault, address indexed admin, bytes32 salt)
+  - name: StreamVault
+    abi_file_path: abis/StreamVault.json
+    events:
+      - event: PostRegistered(uint256 indexed postId, uint64 indexed xUserId)
+      - event: Report(uint256 indexed postId, uint64 impressions, bool valid)
+      - event: Payout(uint256 indexed postId, uint256 pubKey, uint256 amount, uint256 blinding, uint256 commitment, uint32 index, bool holdback)
+        field_selection:
+          transaction_fields:
+            - hash
+      - event: PostRejected(uint256 indexed postId, uint256 forfeited)
+      - event: StreamCreated(uint256 indexed streamId, uint256 pubKey, uint128 ratePerSecond, uint64 start, uint64 end)
+      - event: Drip(uint256 indexed streamId, uint256 amount, uint256 blinding, uint256 commitment, uint32 index)
+      - event: Closed(uint256 refunded)
+chains:
+  - id: 10143
+    rpc:
+      - url: https://testnet-rpc.monad.xyz/
+        for: sync
+        initial_block_interval: 100
+        interval_ceiling: 100
+    start_block: 69802319
+    contracts:
+      - name: VeilPool
+        address:
+          - "0x57c2502f0522d2128f72ea867d2225fb15aeb1d1"
+          - "0x409b1d63174407550f773d405e4068e147362d18"
+      - name: StreamVaultFactory
+        address: "0x6a3a7df1ae3fd0922e3c29935d0e040cfab63560"
+      - name: StreamVault

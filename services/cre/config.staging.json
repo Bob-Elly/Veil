@@ -1,0 +1,9 @@
+{
+  "schedule": "0 */10 * * * *",
+  "chainSelectorName": "monad-testnet",
+  "gasLimit": "3000000",
+  "vaults": ["0x9c4F7802b8004b5a37dc68fF4E94849bCd046533"],
+  "requiredTag": "#ad",
+  "requiredMention": "@veil",
+  "xApiBase": "http://localhost:3002/mock-x"
+}

@@ -1,0 +1,7 @@
+node_modules
+circuits/build
+*.ptau
+contracts/out
+contracts/cache
+.env*
+!.env.example

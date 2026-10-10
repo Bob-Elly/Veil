@@ -1,0 +1,21 @@
+{
+  "name": "veil-indexer",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=22.15.0" },
+  "scripts": {
+    "start": "envio start",
+    "dev": "envio dev",
+    "build": "envio build",
+    "codegen": "envio codegen",
+    "test": "vitest"
+  },
+  "dependencies": {
+    "envio": "3.14.1"
+  },
+  "devDependencies": {
+    "vitest": "^1.2.0",
+    "typescript": "^5.0.0"
+  }
+}

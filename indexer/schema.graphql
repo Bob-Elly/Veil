@@ -1,0 +1,53 @@
+type Commitment {
+  id: ID!
+  pool: String!
+  index: BigInt!
+  commitment: BigInt!
+  memo: String!
+  blockNumber: BigInt!
+  txHash: String!
+}
+
+type Nullifier {
+  id: ID!
+  pool: String!
+  nullifier: BigInt!
+  blockNumber: BigInt!
+}
+
+type PoolStat {
+  id: ID!
+  commitments: BigInt!
+  nullifiers: BigInt!
+}
+
+type Campaign {
+  id: ID!
+  admin: String!
+  createdAt: BigInt!
+  totalPaid: BigInt!
+  posts: BigInt!
+}
+
+type Post {
+  id: ID!
+  campaign: String!
+  postId: BigInt!
+  xUserId: BigInt!
+  lastImpressions: BigInt!
+  paid: BigInt!
+  rejected: Boolean!
+}
+
+type Payout {
+  id: ID!
+  campaign: String!
+  postId: BigInt!
+  pubKey: BigInt!
+  amount: BigInt!
+  blinding: BigInt!
+  commitment: BigInt!
+  index: BigInt!
+  holdback: Boolean!
+  blockNumber: BigInt!
+}

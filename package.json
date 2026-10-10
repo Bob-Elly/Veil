@@ -1,0 +1,10 @@
+{
+  "name": "veil-monad",
+  "private": true,
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "blake-hash",
+      "esbuild"
+    ]
+  }
+}

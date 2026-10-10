@@ -1,0 +1,7 @@
+{
+  "name": "veil-scripts",
+  "type": "module",
+  "dependencies": {
+    "viem": "^2.0.0"
+  }
+}

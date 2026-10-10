@@ -1,0 +1,26 @@
+{
+  "chainId": 10143,
+  "poseidon2": "0x5d43c929e91d9ff0c4440d3e2b094429b53095f6",
+  "poseidon3": "0x4142f46657ebaaf7383489976cd5169222c89d29",
+  "verifier": "0x6b985d08c0a530b972c9c268d6c220b336abf14c",
+  "pools": {
+    "USDC": {
+      "address": "0x57c2502f0522d2128f72ea867d2225fb15aeb1d1",
+      "token": "0x534b2f3A21130d7a60830c2Df862319e593943A3",
+      "decimals": 6,
+      "deployBlock": 69802319
+    },
+    "AUSD": {
+      "address": "0x409b1d63174407550f773d405e4068e147362d18",
+      "token": "0x1c4523f39341766b9088845a8240450025b03b1e",
+      "decimals": 6,
+      "deployBlock": 69802329,
+      "mock": true
+    }
+  },
+  "streamVaultFactory": "0x6a3a7df1ae3fd0922e3c29935d0e040cfab63560",
+  "verifiedPool": null,
+  "cvi": null,
+  "zkey_sha256": "5d64f2162ef439ae53f0e3c61f276245f7fa1b934907ef66ce3cf149056acad0",
+  "wasm_sha256": "e44f07497b34f3498352da5bfd9fd7a100c2e8cb7ebddc643f1e6e29d4dfcf6a"
+}

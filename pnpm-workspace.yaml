@@ -1,0 +1,8 @@
+packages:
+  - "packages/*"
+  - "services/*"
+  - "apps/*"
+  - "indexer"
+  - "e2e"
+minimumReleaseAgeExclude:
+  - dotenv@18.0.7

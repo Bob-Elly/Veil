@@ -1,0 +1,13 @@
+{
+  "name": "veil-impressions",
+  "version": "1.0.0",
+  "main": "main.ts",
+  "dependencies": {
+    "@chainlink/cre-sdk": "^1.19.0",
+    "viem": "^2.57.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0",
+    "@types/node": "^20.0.0"
+  }
+}

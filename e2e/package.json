@@ -1,0 +1,17 @@
+{
+  "name": "veil-sdk-reference",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "e2e": "node e2e.mjs",
+    "circuit-negative": "node circuit-negative.mjs"
+  },
+  "dependencies": {
+    "@noble/ciphers": "^1",
+    "@noble/curves": "^1",
+    "@noble/hashes": "^1",
+    "circomlibjs": "0.1.7",
+    "snarkjs": "0.7.5",
+    "viem": "^2.57.0"
+  }
+}
