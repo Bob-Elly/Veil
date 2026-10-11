@@ -1,11 +1,10 @@
-import { VeilKeys } from "@veil/sdk";
-import { readMemo } from "@veil/sdk/dist/memo"; // Ensure proper import path or export in index.ts
-import { Note, nullifierOf } from "@veil/sdk/dist/note"; // Assuming these are exported, will verify
+import { VeilKeys, readMemo, Note, nullifierOf } from "@veil/sdk";
 
 const ENVIO_URL = "http://localhost:8080/v1/graphql"; // Adjust this based on Envio deployment
 
 export type SyncedNote = Note & {
     spent: boolean;
+    commitment?: bigint;
 };
 
 export async function fetchCommitments(pool: string, lastIndex: bigint) {

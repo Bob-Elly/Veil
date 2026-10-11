@@ -35,9 +35,9 @@ export function FundAnyChainModal({ onClose }: { onClose: () => void }) {
           originAsset,
           destinationAsset: MONAD_USDC_ASSET_ID,
           depositType: "ORIGIN_CHAIN",
-          recipient: session?.account.address,
+          recipient: session?.publicAccount.address,
           recipientType: "DESTINATION_CHAIN",
-          refundTo: session?.account.address, // Usually user's origin address
+          refundTo: session?.publicAccount.address, // Usually user's origin address
           refundType: "ORIGIN_CHAIN",
           slippageTolerance: 100,
           deadline: new Date(Date.now() + 10 * 60_000).toISOString()

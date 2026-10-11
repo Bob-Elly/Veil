@@ -1,4 +1,4 @@
-import { createProver } from "@veil/sdk/dist/prover";
+import { createProver } from "@veil/sdk";
 
 let proverInstance: any = null;
 

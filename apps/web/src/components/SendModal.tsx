@@ -3,9 +3,7 @@
 import { useState } from "react";
 import { useApp } from "./Providers";
 import { parseUnits } from "viem";
-import { buildTransfer } from "@veil/sdk/dist/tx";
-import { selectInputs } from "@veil/sdk/dist/coinSelect";
-import { MerkleTree } from "@veil/sdk/dist/tree";
+import { buildTransfer, selectInputs, MerkleTree } from "@veil/sdk";
 import { getProver } from "@/lib/prover";
 import { submitToRelayer } from "@/lib/relayer";
 

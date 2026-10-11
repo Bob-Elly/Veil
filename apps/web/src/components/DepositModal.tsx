@@ -4,8 +4,7 @@ import { useState } from "react";
 import { useApp } from "./Providers";
 import { parseUnits, createWalletClient, http, custom, erc20Abi, encodeFunctionData, parseAbiItem, publicActions } from "viem";
 import { monadTestnet } from "viem/chains";
-import { buildDeposit } from "@veil/sdk/dist/tx";
-import { MerkleTree } from "@veil/sdk/dist/tree";
+import { buildDeposit, MerkleTree } from "@veil/sdk";
 import { getProver } from "@/lib/prover";
 
 const POOL_ADDRESS = "0x57c2502f0522d2128f72ea867d2225fb15aeb1d1"; // USDC pool testnet
@@ -69,14 +68,14 @@ export function DepositModal({ onClose }: { onClose: () => void }) {
       const args = [
         proofArgs,
         {
-          recipient: extData.recipient,
+          recipient: extData.recipient as `0x${string}`,
           extAmount: extData.extAmount,
-          relayer: extData.relayer,
+          relayer: extData.relayer as `0x${string}`,
           fee: extData.fee,
-          encryptedOutput1: extData.encryptedOutput1,
-          encryptedOutput2: extData.encryptedOutput2
+          encryptedOutput1: extData.encryptedOutput1 as `0x${string}`,
+          encryptedOutput2: extData.encryptedOutput2 as `0x${string}`
         }
-      ];
+      ] as any;
 
       const transactGas = await client.estimateContractGas({
         address: POOL_ADDRESS,
