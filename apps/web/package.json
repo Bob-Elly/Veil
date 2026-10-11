@@ -13,7 +13,7 @@
     "@heroicons/react": "^2.2.0",
     "@scure/bip32": "^2.4.0",
     "@scure/bip39": "^2.4.0",
-    "@veil/sdk": "file:../../packages/sdk",
+    "@veil/sdk": "workspace:*",
     "next": "16.4.0",
     "react": "19.3.0",
     "react-dom": "19.3.0",

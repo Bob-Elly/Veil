@@ -1,0 +1,97 @@
+{
+  "name": "@veil/mm-plugin",
+  "version": "0.1.0",
+  "description": "MetaMask Agent Wallet plugin for Veil",
+  "license": "MIT",
+  "type": "module",
+  "keywords": [
+    "oclif-plugin"
+  ],
+  "files": [
+    "dist",
+    "oclif.manifest.json"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json && oclif manifest",
+    "prepack": "tsc -p tsconfig.json && oclif manifest"
+  },
+  "oclif": {
+    "bin": "mm",
+    "commands": "./dist/commands",
+    "topicSeparator": " ",
+    "topics": {
+      "veil": {
+        "description": "Veil shielded pool operations"
+      }
+    }
+  },
+  "mm": {
+    "schemaVersion": 1,
+    "minCliVersion": "^7.0.0",
+    "targetChains": [10143, 143],
+    "capabilities": [],
+    "commands": [
+      {
+        "id": "veil:setup",
+        "capabilities": ["wallet-read", "wallet-submit"],
+        "dataAccess": ["accounts"]
+      },
+      {
+        "id": "veil:deposit",
+        "capabilities": ["wallet-read", "wallet-submit"],
+        "dataAccess": ["balances"]
+      },
+      {
+        "id": "veil:balance",
+        "capabilities": [],
+        "dataAccess": []
+      },
+      {
+        "id": "veil:pay",
+        "capabilities": [],
+        "dataAccess": []
+      },
+      {
+        "id": "veil:x402:fetch",
+        "capabilities": [],
+        "dataAccess": []
+      },
+      {
+        "id": "veil:withdraw",
+        "capabilities": ["wallet-read"],
+        "dataAccess": ["accounts"]
+      },
+      {
+        "id": "veil:guard:set",
+        "capabilities": [],
+        "dataAccess": []
+      },
+      {
+        "id": "veil:guard:get",
+        "capabilities": [],
+        "dataAccess": []
+      },
+      {
+        "id": "veil:receipt",
+        "capabilities": [],
+        "dataAccess": []
+      },
+      {
+        "id": "veil:skill",
+        "capabilities": [],
+        "dataAccess": []
+      }
+    ]
+  },
+  "peerDependencies": {
+    "@metamask/agent-wallet": "^7.0.0"
+  },
+  "dependencies": {
+    "@veil/sdk": "workspace:*"
+  },
+  "devDependencies": {
+    "@metamask/agent-wallet": "^7.0.0",
+    "oclif": "^4",
+    "typescript": "^5"
+  }
+}
