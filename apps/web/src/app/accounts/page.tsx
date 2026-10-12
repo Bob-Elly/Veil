@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useApp } from "@/components/Providers";
-import { KeyIcon, ClipboardDocumentCheckIcon, ArrowTopRightOnSquareIcon, ShieldCheckIcon, CpuChipIcon } from "@heroicons/react/24/outline";
+import { KindBadge } from "@/components/ui/SealedField";
 
 export default function AccountsPage() {
   const { session } = useApp();
@@ -36,10 +36,9 @@ export default function AccountsPage() {
   if (!session) {
     return (
       <div className="flex flex-col items-center justify-center flex-1 py-20 text-center">
-        <KeyIcon className="w-16 h-16 text-neutral-600 mb-4" />
-        <h2 className="text-2xl font-bold mb-2">Sign In Required</h2>
-        <p className="text-neutral-400 max-w-md">
-          Authenticate with your Mera passkey on the dashboard to view your hierarchical derived keys.
+        <h2 className="text-2xl font-light text-foreground mb-2">Sign in required</h2>
+        <p className="text-sm text-mute max-w-sm">
+          Authenticate with your Mera passkey on the home page to inspect your derived keys.
         </p>
       </div>
     );
@@ -50,139 +49,125 @@ export default function AccountsPage() {
   const atRestHex = `0x${Buffer.from(session.keys.atRestKey).toString("hex")}`;
 
   return (
-    <div className="flex flex-col gap-8 max-w-5xl mx-auto w-full">
+    <div className="space-y-8 max-w-5xl mx-auto w-full">
       {/* Header */}
       <div>
-        <div className="flex items-center gap-2 mb-2">
-          <span className="text-xs px-2.5 py-0.5 rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/20 font-semibold tracking-wide uppercase">
-            Mera: One Passkey, Many Keys
+        <div className="flex items-center gap-2 mb-1">
+          <h1 className="text-3xl font-light tracking-[-0.02em] text-foreground">
+            Accounts & Key Tree
+          </h1>
+          <span className="inline-flex items-center rounded-full bg-surface px-2.5 py-0.5 text-xs text-mute font-mono">
+            Mera BIP-44
           </span>
         </div>
-        <h1 className="text-3xl font-extrabold tracking-tight">Derived Accounts & Key Tree</h1>
-        <p className="text-neutral-400 mt-1 max-w-2xl">
-          A single PRF output from your passkey deterministically derives your public funding EOA, private spend key, shareable auditor viewing key, encrypted-at-rest vault key, and sub-agent identities (BIP-44 path <code className="text-indigo-300">m/44&apos;/60&apos;/0&apos;/0/i</code>).
+        <p className="text-sm text-mute max-w-2xl">
+          One passkey derives your public funding wallet, private spending key, auditor view key, and autonomous agent identities under <code className="text-foreground">m/44&apos;/60&apos;/0&apos;/0/i</code>.
         </p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Public EOA (Index 0) */}
-        <div className="bg-white/5 border border-white/10 rounded-3xl p-6 backdrop-blur-md relative overflow-hidden flex flex-col justify-between">
+        {/* Index 0: Public EOA */}
+        <div className="gl-card p-6 flex flex-col justify-between">
           <div>
-            <div className="flex justify-between items-start mb-3">
-              <span className="text-xs font-mono px-2 py-0.5 rounded-md bg-white/10 text-neutral-300">
-                Index 0 · Public EOA
-              </span>
-              <span className="text-xs text-neutral-400">Gas & Funding</span>
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-xs font-mono text-mute">Index 0 · Public EOA</span>
+              <span className="text-xs text-mute">Gas & Funding</span>
             </div>
-            <h3 className="text-lg font-bold mb-1">Monad Public Wallet</h3>
-            <p className="text-xs text-neutral-400 mb-4">
-              Pays gas, deposits into the pool, and receives withdrawals by default.
+            <h3 className="text-base font-medium text-foreground mb-1">Public Monad Address</h3>
+            <p className="text-xs text-mute mb-4">
+              Pays network gas and pulls deposits into the shielded pool.
             </p>
-            <div className="bg-black/30 p-3 rounded-2xl border border-white/5 font-mono text-xs break-all text-neutral-300">
+            <div className="rounded-xl bg-surface p-3 font-mono text-xs text-foreground break-all">
               {session.publicAccount.address}
             </div>
           </div>
           <button
             onClick={() => copyToClipboard(session.publicAccount.address, "eoa")}
-            className="mt-4 flex items-center justify-center gap-2 py-2 px-4 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-semibold transition-colors"
+            className="btn btn-ghost btn-sm mt-4 text-xs"
           >
-            <ClipboardDocumentCheckIcon className="w-4 h-4" />
-            {copiedKey === "eoa" ? "Copied!" : "Copy Address"}
+            {copiedKey === "eoa" ? "Copied" : "Copy address"}
           </button>
         </div>
 
-        {/* Main Veil Account (Index 1) */}
-        <div className="bg-gradient-to-br from-indigo-950/40 to-neutral-900 border border-indigo-500/20 rounded-3xl p-6 backdrop-blur-md relative overflow-hidden flex flex-col justify-between">
+        {/* Index 1: Main Veil */}
+        <div className="gl-card p-6 flex flex-col justify-between">
           <div>
-            <div className="flex justify-between items-start mb-3">
-              <span className="text-xs font-mono px-2 py-0.5 rounded-md bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
-                Index 1 · Primary Veil
-              </span>
-              <ShieldCheckIcon className="w-5 h-5 text-indigo-400" />
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-xs font-mono text-mute">Index 1 · Primary Veil</span>
+              <KindBadge sealed={true} />
             </div>
-            <h3 className="text-lg font-bold mb-1">Main Shielded Address</h3>
-            <p className="text-xs text-neutral-400 mb-4">
-              Spend key + view key for your primary private pool balance.
+            <h3 className="text-base font-medium text-foreground mb-1">Primary Shielded Address</h3>
+            <p className="text-xs text-mute mb-4">
+              Spend key + viewing key for your private balances.
             </p>
-            <div className="bg-black/40 p-3 rounded-2xl border border-indigo-500/10 font-mono text-xs break-all text-neutral-300 max-h-20 overflow-y-auto">
+            <div className="rounded-xl bg-surface p-3 font-mono text-xs text-foreground break-all max-h-20 overflow-y-auto">
               {mainVeilAddress}
             </div>
           </div>
           <button
             onClick={() => copyToClipboard(mainVeilAddress, "veil")}
-            className="mt-4 flex items-center justify-center gap-2 py-2 px-4 rounded-xl bg-indigo-500/20 hover:bg-indigo-500/30 border border-indigo-500/40 text-indigo-300 text-xs font-semibold transition-colors"
+            className="btn btn-ink btn-sm mt-4 text-xs"
           >
-            <ClipboardDocumentCheckIcon className="w-4 h-4" />
-            {copiedKey === "veil" ? "Copied!" : "Copy Full Veil Address"}
+            {copiedKey === "veil" ? "Copied" : "Copy shielded address"}
           </button>
         </div>
 
-        {/* Auditor View Key (Index 2) */}
-        <div className="bg-white/5 border border-white/10 rounded-3xl p-6 backdrop-blur-md relative overflow-hidden flex flex-col justify-between">
+        {/* Index 2: Auditor View Key */}
+        <div className="gl-card p-6 flex flex-col justify-between">
           <div>
-            <div className="flex justify-between items-start mb-3">
-              <span className="text-xs font-mono px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-300 border border-amber-500/20">
-                Index 2 · Compliance
-              </span>
-              <span className="text-xs text-neutral-400">Read-Only</span>
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-xs font-mono text-mute">Index 2 · Compliance</span>
+              <span className="text-xs text-mute">Read-only</span>
             </div>
-            <h3 className="text-lg font-bold mb-1">Shareable Auditor Key</h3>
-            <p className="text-xs text-neutral-400 mb-4">
-              Share with an accountant or auditor. Can decrypt note memos to verify transaction history without spending rights.
+            <h3 className="text-base font-medium text-foreground mb-1">Auditor Viewing Key</h3>
+            <p className="text-xs text-mute mb-4">
+              Share with an accountant. Can decrypt memos without spend capability.
             </p>
-            <div className="bg-black/30 p-3 rounded-2xl border border-white/5 font-mono text-xs break-all text-neutral-300 max-h-20 overflow-y-auto">
+            <div className="rounded-xl bg-surface p-3 font-mono text-xs text-foreground break-all max-h-20 overflow-y-auto">
               {auditViewKey}
             </div>
           </div>
           <button
             onClick={() => copyToClipboard(auditViewKey, "audit")}
-            className="mt-4 flex items-center justify-center gap-2 py-2 px-4 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-semibold transition-colors"
+            className="btn btn-ghost btn-sm mt-4 text-xs"
           >
-            <ArrowTopRightOnSquareIcon className="w-4 h-4" />
-            {copiedKey === "audit" ? "Copied!" : "Export View Key"}
+            {copiedKey === "audit" ? "Copied" : "Export viewing key"}
           </button>
         </div>
 
-        {/* At-Rest Key (Index 3) */}
-        <div className="bg-white/5 border border-white/10 rounded-3xl p-6 backdrop-blur-md relative overflow-hidden flex flex-col justify-between">
+        {/* Index 3: At-Rest Vault Key */}
+        <div className="gl-card p-6 flex flex-col justify-between">
           <div>
-            <div className="flex justify-between items-start mb-3">
-              <span className="text-xs font-mono px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">
-                Index 3 · Storage
-              </span>
-              <span className="text-xs text-neutral-400">AES-256-GCM</span>
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-xs font-mono text-mute">Index 3 · Storage</span>
+              <span className="text-xs text-mute">AES-256-GCM</span>
             </div>
-            <h3 className="text-lg font-bold mb-1">At-Rest Vault Key</h3>
-            <p className="text-xs text-neutral-400 mb-4">
-              Protects cached unspent notes in browser localStorage (Gloam audit M-1 mitigation). Never leaves memory unencrypted.
+            <h3 className="text-base font-medium text-foreground mb-1">At-Rest Vault Key</h3>
+            <p className="text-xs text-mute mb-4">
+              Encrypts cached unspent notes locally in browser storage.
             </p>
-            <div className="bg-black/30 p-3 rounded-2xl border border-white/5 font-mono text-xs break-all text-neutral-400">
-              {atRestHex.slice(0, 18)}...{atRestHex.slice(-10)} (Protected)
+            <div className="rounded-xl bg-surface p-3 font-mono text-xs text-mute">
+              {atRestHex.slice(0, 18)}…{atRestHex.slice(-10)} (Protected)
             </div>
           </div>
-          <div className="mt-4 py-2 px-4 rounded-xl bg-white/5 text-center text-xs text-neutral-400">
-            Active in Memory
-          </div>
+          <span className="mt-4 text-center text-xs text-mute py-2">
+            Held in session memory
+          </span>
         </div>
       </div>
 
-      {/* Agent Sub-Accounts (Indices 10 + k) */}
-      <div className="bg-white/5 border border-white/10 rounded-3xl p-6 backdrop-blur-md">
-        <div className="flex flex-wrap justify-between items-center mb-6">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-xl bg-purple-500/20 border border-purple-500/30 text-purple-300">
-              <CpuChipIcon className="w-6 h-6" />
-            </div>
-            <div>
-              <h3 className="text-lg font-bold">Autonomous Agent Accounts</h3>
-              <p className="text-xs text-neutral-400">
-                Hierarchical sub-accounts (Indices 10 + k) provisioned for MetaMask Agent Wallet plugins and AI bots.
-              </p>
-            </div>
+      {/* Sub-agents */}
+      <div className="gl-card p-6">
+        <div className="flex flex-wrap justify-between items-center gap-4 mb-6">
+          <div>
+            <h3 className="text-base font-medium text-foreground">AI Agent Identities (Index 10 + k)</h3>
+            <p className="text-xs text-mute">
+              Hierarchical sub-accounts provisioned for autonomous MetaMask Agent Wallet plugins.
+            </p>
           </div>
           <button
             onClick={() => setAgentCount(c => Math.min(10, c + 1))}
-            className="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-semibold transition-colors"
+            className="btn btn-ghost btn-sm text-xs"
           >
             + Derive Next Agent Account
           </button>
@@ -190,21 +175,21 @@ export default function AccountsPage() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {agentKeys.map(agent => (
-            <div key={agent.index} className="bg-black/30 border border-white/5 rounded-2xl p-4">
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-xs font-mono text-neutral-400">
+            <div key={agent.index} className="rounded-xl bg-surface p-4 flex justify-between items-center gap-4">
+              <div className="min-w-0">
+                <span className="text-xs font-mono text-mute block mb-1">
                   Agent #{agent.index} (Index {10 + agent.index})
                 </span>
-                <button
-                  onClick={() => copyToClipboard(agent.address, `agent-${agent.index}`)}
-                  className="text-xs text-indigo-400 hover:text-indigo-300"
-                >
-                  {copiedKey === `agent-${agent.index}` ? "Copied" : "Copy"}
-                </button>
+                <span className="font-mono text-xs text-foreground truncate block">
+                  {agent.address}
+                </span>
               </div>
-              <div className="font-mono text-xs text-neutral-300 truncate">
-                {agent.address}
-              </div>
+              <button
+                onClick={() => copyToClipboard(agent.address, `agent-${agent.index}`)}
+                className="btn btn-ghost btn-sm text-xs shrink-0"
+              >
+                {copiedKey === `agent-${agent.index}` ? "Copied" : "Copy"}
+              </button>
             </div>
           ))}
         </div>

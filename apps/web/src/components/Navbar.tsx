@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ShieldCheckIcon, UserCircleIcon, ArrowRightOnRectangleIcon } from "@heroicons/react/24/outline";
 import { useApp } from "./Providers";
 import { logout } from "@/lib/wallet";
 
@@ -11,80 +10,80 @@ export function Navbar() {
   const { session, isSyncing, lastSync } = useApp();
 
   const navLinks = [
-    { href: "/", label: "Dashboard" },
+    { href: "/", label: "Portfolio" },
+    { href: "/vault", label: "Vault" },
     { href: "/payroll", label: "Payroll" },
-    { href: "/campaigns", label: "Campaigns (CRE)" },
-    { href: "/accounts", label: "Accounts & Keys" },
-    { href: "/verify", label: "Verify Receipt" },
+    { href: "/campaigns", label: "Campaigns" },
+    { href: "/accounts", label: "Accounts" },
+    { href: "/verify", label: "Verify" },
     { href: "/transparency", label: "Transparency" },
   ];
 
   return (
-    <header className="px-8 py-4 flex flex-wrap justify-between items-center z-10 border-b border-white/10 bg-black/40 backdrop-blur-xl sticky top-0">
-      <div className="flex items-center gap-8">
-        <Link href="/" className="flex items-center gap-2 group">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-purple-500 flex items-center justify-center shadow-lg shadow-indigo-500/30 group-hover:scale-105 transition-transform">
-            <ShieldCheckIcon className="w-5 h-5 text-white" />
-          </div>
-          <span className="text-2xl font-black tracking-tight bg-gradient-to-r from-indigo-300 via-purple-200 to-pink-300 bg-clip-text text-transparent">
-            Veil
-          </span>
-        </Link>
+    <header className="sticky top-0 z-50 bg-background/85 backdrop-blur-xl border-b border-line">
+      <div className="mx-auto flex h-16 max-w-[1400px] items-center justify-between gap-4 px-4 sm:px-7">
+        <div className="flex items-center gap-8">
+          <Link href="/" className="inline-flex items-center gap-2.5 rounded-lg focus-visible:outline-none">
+            <svg width="26" height="26" viewBox="0 0 32 32" aria-hidden className="shrink-0">
+              <rect width="32" height="32" rx="9" fill="var(--foreground)" />
+              <rect x="15" y="4" width="12" height="12" rx="3.5" fill="var(--background)" />
+            </svg>
+            <span className="text-[19px] font-medium leading-none tracking-[-0.015em] text-foreground">
+              Veil
+            </span>
+          </Link>
 
-        <nav className="hidden md:flex gap-1 items-center bg-white/5 p-1 rounded-2xl border border-white/5 text-sm">
-          {navLinks.map((item) => {
-            const active = pathname === item.href;
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`px-3 py-1.5 rounded-xl transition-all ${
-                  active
-                    ? "bg-indigo-500/20 text-indigo-300 font-medium shadow-sm border border-indigo-500/30"
-                    : "text-neutral-400 hover:text-white hover:bg-white/5"
-                }`}
-              >
-                {item.label}
-              </Link>
-            );
-          })}
-        </nav>
-      </div>
+          <nav className="hidden items-center gap-1 sm:flex" aria-label="Primary">
+            {navLinks.map((item) => {
+              const active = pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href));
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={`rounded-full px-3.5 py-1.5 text-[14px] transition-colors ${
+                    active
+                      ? "bg-surface text-foreground font-medium"
+                      : "text-mute hover:text-foreground"
+                  }`}
+                >
+                  {item.label}
+                </Link>
+              );
+            })}
+          </nav>
+        </div>
 
-      <div className="flex items-center gap-3">
-        {session ? (
-          <div className="flex items-center gap-3">
-            <div className="hidden sm:flex flex-col items-end text-xs">
-              <span className="text-neutral-400 flex items-center gap-1.5">
-                <span className={`w-2 h-2 rounded-full ${isSyncing ? "bg-amber-400 animate-pulse" : "bg-emerald-400"}`} />
-                {isSyncing ? "Syncing tree..." : lastSync ? "Synced" : "Ready"}
-              </span>
-              <span className="font-mono text-neutral-500">
-                {session.publicAccount.address.slice(0, 6)}...{session.publicAccount.address.slice(-4)}
-              </span>
-            </div>
-
-            <Link
-              href="/accounts"
-              className="p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-neutral-300 hover:text-white transition-colors"
-              title="View Derived Keys"
-            >
-              <UserCircleIcon className="w-5 h-5" />
-            </Link>
-
-            <button
-              onClick={() => logout()}
-              className="p-2 rounded-xl bg-white/5 hover:bg-red-500/20 border border-white/10 hover:border-red-500/30 text-neutral-400 hover:text-red-300 transition-colors"
-              title="Sign Out"
-            >
-              <ArrowRightOnRectangleIcon className="w-5 h-5" />
-            </button>
-          </div>
-        ) : (
-          <span className="text-xs px-3 py-1 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+        <div className="flex items-center gap-3">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-surface px-3 py-1 text-[12px] font-medium text-mute">
+            <span className="h-1.5 w-1.5 rounded-full bg-green" />
             Monad Testnet
           </span>
-        )}
+
+          {session ? (
+            <div className="flex items-center gap-2">
+              <div className="hidden sm:flex flex-col items-end text-[11px] leading-tight">
+                <span className="text-mute flex items-center gap-1">
+                  <span className={`h-1.5 w-1.5 rounded-full ${isSyncing ? "bg-amber-500 animate-pulse" : "bg-green"}`} />
+                  {isSyncing ? "Syncing" : lastSync ? "Synced" : "Ready"}
+                </span>
+                <span className="font-mono text-faint">
+                  {session.publicAccount.address.slice(0, 6)}…{session.publicAccount.address.slice(-4)}
+                </span>
+              </div>
+
+              <button
+                onClick={() => logout()}
+                className="btn btn-ghost btn-sm text-[13px]"
+              >
+                Sign out
+              </button>
+            </div>
+          ) : (
+            <Link href="/" className="btn btn-ink btn-sm">
+              Sign in
+            </Link>
+          )}
+        </div>
       </div>
     </header>
   );

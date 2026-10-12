@@ -1,16 +1,12 @@
 import "./globals.css";
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
 import { Providers } from "@/components/Providers";
-
-const inter = Inter({ subsets: ["latin"] });
+import { Navbar } from "@/components/Navbar";
 
 export const metadata: Metadata = {
-  title: "Veil - Private Payments on Monad",
-  description: "Pay people and agents on Monad privately",
+  title: "Veil — Private Payments on Monad",
+  description: "Pay people and autonomous agents on Monad privately. Amounts and transfer graphs stay sealed.",
 };
-
-import { Navbar } from "@/components/Navbar";
 
 export default function RootLayout({
   children,
@@ -18,20 +14,20 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className="dark">
-      <body className={`${inter.className} bg-neutral-950 text-white min-h-screen selection:bg-indigo-500/30`}>
+    <html lang="en">
+      <body className="min-h-screen bg-background text-foreground antialiased selection:bg-navy-100 flex flex-col">
         <Providers>
-          <div className="flex flex-col min-h-screen relative overflow-hidden">
-            {/* Background Effects */}
-            <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-indigo-600/20 blur-[120px] rounded-full pointer-events-none" />
-            <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] bg-purple-600/20 blur-[120px] rounded-full pointer-events-none" />
-            
-            <Navbar />
-            
-            <main className="flex-1 w-full max-w-7xl mx-auto p-8 z-10 flex flex-col">
-              {children}
-            </main>
-          </div>
+          <Navbar />
+          <main className="flex-1 w-full max-w-[1400px] mx-auto px-4 sm:px-7 py-8 sm:py-12 flex flex-col">
+            {children}
+          </main>
+          
+          <footer className="w-full border-t border-line py-8 mt-auto text-xs text-mute text-center">
+            <div className="max-w-[1400px] mx-auto px-4 sm:px-7 flex flex-wrap justify-between items-center gap-4">
+              <span>Veil · Monad Metropolis (Track 04)</span>
+              <span>Self-custodial client-side Groth16 proofs. No operator.</span>
+            </div>
+          </footer>
         </Providers>
       </body>
     </html>

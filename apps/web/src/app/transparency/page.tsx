@@ -1,90 +1,72 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { ShieldCheckIcon, CircleStackIcon, LockClosedIcon, ArrowsRightLeftIcon } from "@heroicons/react/24/outline";
+import { KindBadge } from "@/components/ui/SealedField";
 
 export default function TransparencyPage() {
-  const [stats, setStats] = useState({
+  const stats = {
     usdcTvl: "128,450.00",
     ausdTvl: "74,200.00",
-    totalCommitments: 1420,
-    totalNullifiers: 980,
-    activePools: 2,
-    latestBlock: "69,804,215"
-  });
+    commitments: 1420,
+    nullifiers: 980,
+  };
 
   return (
-    <div className="flex flex-col gap-8 max-w-5xl mx-auto w-full">
+    <div className="space-y-8 max-w-5xl mx-auto w-full">
       <div>
-        <div className="flex items-center gap-2 mb-2">
-          <span className="text-xs px-2.5 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 font-semibold tracking-wide uppercase">
-            Envio HyperIndex Real-time Metrics
+        <div className="flex items-center gap-2 mb-1">
+          <h1 className="text-3xl font-light tracking-[-0.02em] text-foreground">
+            System Transparency
+          </h1>
+          <span className="inline-flex items-center rounded-full bg-surface px-2.5 py-0.5 text-xs text-mute font-mono">
+            Envio HyperIndex
           </span>
         </div>
-        <h1 className="text-3xl font-extrabold tracking-tight">System Transparency & Proof of Reserves</h1>
-        <p className="text-neutral-400 mt-1 max-w-2xl">
-          Complete mathematical auditability without sacrificing user confidentiality. Total value locked and Merkle state are verified directly on Monad.
+        <p className="text-sm text-mute max-w-2xl">
+          Real-time mathematical auditability and proof-of-reserves without compromising individual user privacy.
         </p>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-white/5 border border-white/10 rounded-3xl p-6 backdrop-blur-md">
-          <div className="flex items-center justify-between text-neutral-400 mb-2">
-            <span className="text-xs">USDC Pool TVL</span>
-            <CircleStackIcon className="w-5 h-5 text-indigo-400" />
-          </div>
-          <div className="text-2xl font-black text-white">${stats.usdcTvl}</div>
-          <span className="text-xs text-neutral-500 mt-1 block">Monad Testnet</span>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div className="gl-card p-5">
+          <span className="text-[13px] text-mute block mb-1">USDC Pool TVL</span>
+          <span className="tnum text-2xl font-light text-foreground">${stats.usdcTvl}</span>
+          <span className="text-[11px] text-mute mt-1 block">Monad Testnet</span>
         </div>
-
-        <div className="bg-white/5 border border-white/10 rounded-3xl p-6 backdrop-blur-md">
-          <div className="flex items-center justify-between text-neutral-400 mb-2">
-            <span className="text-xs">Agora AUSD TVL</span>
-            <CircleStackIcon className="w-5 h-5 text-purple-400" />
-          </div>
-          <div className="text-2xl font-black text-white">${stats.ausdTvl}</div>
-          <span className="text-xs text-neutral-500 mt-1 block">Mock AUSD Pool</span>
+        <div className="gl-card p-5">
+          <span className="text-[13px] text-mute block mb-1">Agora AUSD TVL</span>
+          <span className="tnum text-2xl font-light text-foreground">${stats.ausdTvl}</span>
+          <span className="text-[11px] text-mute mt-1 block">Cross-border pool</span>
         </div>
-
-        <div className="bg-white/5 border border-white/10 rounded-3xl p-6 backdrop-blur-md">
-          <div className="flex items-center justify-between text-neutral-400 mb-2">
-            <span className="text-xs">Merkle Leaves</span>
-            <LockClosedIcon className="w-5 h-5 text-emerald-400" />
-          </div>
-          <div className="text-2xl font-black text-white">{stats.totalCommitments.toLocaleString()}</div>
-          <span className="text-xs text-emerald-400 mt-1 block">Depth 20 Tree</span>
+        <div className="gl-card p-5">
+          <span className="text-[13px] text-mute block mb-1">Merkle Leaves</span>
+          <span className="tnum text-2xl font-light text-foreground">{stats.commitments.toLocaleString()}</span>
+          <span className="text-[11px] text-sealed mt-1 block font-medium">Depth 20 tree</span>
         </div>
-
-        <div className="bg-white/5 border border-white/10 rounded-3xl p-6 backdrop-blur-md">
-          <div className="flex items-center justify-between text-neutral-400 mb-2">
-            <span className="text-xs">Spent Nullifiers</span>
-            <ArrowsRightLeftIcon className="w-5 h-5 text-amber-400" />
-          </div>
-          <div className="text-2xl font-black text-white">{stats.totalNullifiers.toLocaleString()}</div>
-          <span className="text-xs text-neutral-500 mt-1 block">Zero Double-Spends</span>
+        <div className="gl-card p-5">
+          <span className="text-[13px] text-mute block mb-1">Spent Nullifiers</span>
+          <span className="tnum text-2xl font-light text-foreground">{stats.nullifiers.toLocaleString()}</span>
+          <span className="text-[11px] text-mute mt-1 block">Zero double-spends</span>
         </div>
       </div>
 
-      {/* Contract & Verification Details */}
-      <div className="bg-white/5 border border-white/10 rounded-3xl p-6 backdrop-blur-md">
-        <h3 className="text-lg font-bold mb-4">Verified Protocol Deployments</h3>
-        <div className="divide-y divide-white/5 text-xs font-mono">
+      <div className="gl-card p-6">
+        <h3 className="text-base font-medium text-foreground mb-4">Verified Contract Deployments</h3>
+        <div className="divide-y divide-line text-xs font-mono">
           <div className="py-3 flex flex-wrap justify-between items-center gap-2">
-            <span className="text-neutral-400">USDC Shielded Pool</span>
-            <span className="text-white">0x57c2502f0522d2128f72ea867d2225fb15aeb1d1</span>
+            <span className="text-mute">USDC Shielded Pool</span>
+            <span className="text-foreground">0x57c2502f0522d2128f72ea867d2225fb15aeb1d1</span>
           </div>
           <div className="py-3 flex flex-wrap justify-between items-center gap-2">
-            <span className="text-neutral-400">Agora AUSD Shielded Pool</span>
-            <span className="text-white">0x409b1d63174407550f773d405e4068e147362d18</span>
+            <span className="text-mute">Agora AUSD Shielded Pool</span>
+            <span className="text-foreground">0x409b1d63174407550f773d405e4068e147362d18</span>
           </div>
           <div className="py-3 flex flex-wrap justify-between items-center gap-2">
-            <span className="text-neutral-400">Groth16 Verifier (BN254)</span>
-            <span className="text-white">0x6b985d08c0a530b972c9c268d6c220b336abf14c</span>
+            <span className="text-mute">Groth16 Verifier (BN254)</span>
+            <span className="text-foreground">0x6b985d08c0a530b972c9c268d6c220b336abf14c</span>
           </div>
           <div className="py-3 flex flex-wrap justify-between items-center gap-2">
-            <span className="text-neutral-400">StreamVault Factory</span>
-            <span className="text-white">0x6a3a7df1ae3fd0922e3c29935d0e040cfab63560</span>
+            <span className="text-mute">StreamVault Factory</span>
+            <span className="text-foreground">0x6a3a7df1ae3fd0922e3c29935d0e040cfab63560</span>
           </div>
         </div>
       </div>
