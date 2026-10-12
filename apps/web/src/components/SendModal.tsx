@@ -67,52 +67,55 @@ export function SendModal({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-neutral-900 border border-white/10 p-8 rounded-3xl w-full max-w-md shadow-2xl relative">
-        <h2 className="text-2xl font-bold mb-6">Send USDC Privately</h2>
+    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div className="gl-panel bg-panel border border-line p-7 rounded-[24px] w-full max-w-md shadow-card relative">
+        <h2 className="text-xl font-light text-foreground mb-1">Send Privately</h2>
+        <p className="text-xs text-mute mb-5">Zero-knowledge transfer with hidden sender, recipient, and amount.</p>
         
         <div className="mb-4">
-          <label className="block text-sm font-medium text-neutral-400 mb-2">Recipient Veil Address</label>
+          <label className="block text-xs font-medium text-mute mb-1.5">Recipient Address or Tag</label>
           <input 
             type="text"
             value={address}
             onChange={(e) => setAddress(e.target.value)}
-            className="w-full bg-black/40 border border-white/10 rounded-2xl py-3 px-4 font-mono text-sm outline-none focus:border-indigo-500 transition-colors"
+            className="gl-input font-mono text-xs"
             placeholder="veil:0x..."
           />
         </div>
 
-        <div className="mb-6">
-          <label className="block text-sm font-medium text-neutral-400 mb-2">Amount</label>
+        <div className="mb-5">
+          <label className="block text-xs font-medium text-mute mb-1.5">Amount</label>
           <div className="relative">
             <input 
               type="number"
               value={amountStr}
               onChange={(e) => setAmountStr(e.target.value)}
-              className="w-full bg-black/40 border border-white/10 rounded-2xl py-4 px-6 text-xl font-medium outline-none focus:border-indigo-500 transition-colors"
+              className="gl-input text-lg pr-16"
               placeholder="0.00"
             />
-            <span className="absolute right-6 top-1/2 -translate-y-1/2 text-neutral-500 font-semibold">USDC</span>
+            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-medium text-mute">USDC</span>
           </div>
         </div>
 
-        {error && <div className="text-red-400 text-sm mb-6 p-4 bg-red-400/10 rounded-xl">{error}</div>}
-        {status && <div className="text-indigo-400 text-sm mb-6 p-4 bg-indigo-400/10 rounded-xl flex items-center gap-2">
-          <span className="w-4 h-4 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
+        {error && <div className="text-danger text-xs mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded-xl">{error}</div>}
+        {status && <div className="text-sealed text-xs mb-4 p-3 bg-sealed-soft border border-sealed/20 rounded-xl flex items-center gap-2">
+          <span className="w-3.5 h-3.5 border-2 border-sealed border-t-transparent rounded-full animate-spin" />
           {status}
         </div>}
 
-        <div className="flex gap-4">
+        <div className="flex gap-3">
           <button 
+            type="button"
             onClick={onClose}
-            className="flex-1 bg-white/5 hover:bg-white/10 text-white font-semibold py-3 px-6 rounded-2xl transition-all"
+            className="btn btn-ghost flex-1"
           >
             Cancel
           </button>
           <button 
+            type="button"
             onClick={handleSend}
             disabled={!!status || !amountStr || !address}
-            className="flex-1 bg-indigo-500 hover:bg-indigo-400 disabled:bg-neutral-600 text-white font-semibold py-3 px-6 rounded-2xl transition-all shadow-[0_0_20px_rgba(99,102,241,0.4)]"
+            className="btn btn-ink flex-1"
           >
             Send
           </button>

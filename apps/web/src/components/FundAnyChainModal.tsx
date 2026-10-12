@@ -89,61 +89,64 @@ export function FundAnyChainModal({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-[#1C1C1E] border border-white/10 w-full max-w-md rounded-[32px] overflow-hidden shadow-2xl">
-        <div className="px-6 py-6 border-b border-white/5 flex items-center justify-between">
-          <h2 className="text-xl font-bold text-white tracking-tight">Fund from Any Chain</h2>
-          <button onClick={onClose} className="text-neutral-500 hover:text-white transition-colors">
-            <XMarkIcon className="w-6 h-6" />
+    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div className="gl-panel bg-panel border border-line w-full max-w-md rounded-[24px] overflow-hidden shadow-card">
+        <div className="px-6 py-5 border-b border-line flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-light text-foreground">Fund from Base</h2>
+            <p className="text-xs text-mute">Confidential cross-chain swap via Aurora Intents</p>
+          </div>
+          <button onClick={onClose} className="text-mute hover:text-foreground transition-colors p-1 rounded-full">
+            <XMarkIcon className="w-5 h-5" />
           </button>
         </div>
 
         <div className="p-6">
           {error && (
-            <div className="bg-red-500/10 border border-red-500/50 text-red-400 p-3 rounded-lg mb-6 text-sm">
+            <div className="bg-red-500/10 border border-red-500/20 text-danger p-3 rounded-xl mb-5 text-xs">
               {error}
             </div>
           )}
 
           {step === "input" && (
-            <form onSubmit={handleQuote} className="flex flex-col gap-6">
-              <p className="text-neutral-400 text-sm">
-                Confidential mode hides where the money came from. Shielding it hides where it goes next.
+            <form onSubmit={handleQuote} className="flex flex-col gap-5">
+              <p className="text-mute text-xs">
+                Confidential mode hides where the funds originated. Shielding it hides where it goes next.
               </p>
               <div>
-                <label className="text-sm font-medium text-neutral-400 mb-2 block">Amount (USDC)</label>
+                <label className="text-xs font-medium text-mute mb-1.5 block">Amount (USDC on Base)</label>
                 <input
                   type="number"
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
                   placeholder="0.00"
-                  className="w-full bg-[#2C2C2E] text-white border-0 rounded-xl p-4 focus:ring-2 focus:ring-indigo-500 text-lg font-medium"
+                  className="gl-input text-lg font-medium"
                 />
               </div>
               <button
                 type="submit"
                 disabled={loading || !amount}
-                className="w-full bg-indigo-500 hover:bg-indigo-400 disabled:bg-neutral-600 disabled:text-neutral-400 text-white font-semibold py-4 rounded-xl transition-all"
+                className="btn btn-ink btn-block"
               >
-                {loading ? "Getting Quote..." : "Get Route"}
+                {loading ? "Getting Route…" : "Get Cross-Chain Route"}
               </button>
             </form>
           )}
 
           {step === "quote" && quote && (
-            <div className="flex flex-col gap-6 items-center">
-              <p className="text-neutral-300 text-center">
-                Send exactly <span className="font-bold text-white">{amount} USDC</span> on Base to the address below:
+            <div className="flex flex-col gap-5 items-center">
+              <p className="text-xs text-mute text-center">
+                Send exactly <span className="font-medium text-foreground">{amount} USDC</span> on Base to:
               </p>
-              <div className="p-4 bg-white rounded-xl">
-                <QrCodeIcon className="w-48 h-48 text-black" />
+              <div className="p-3 bg-white rounded-2xl border border-line">
+                <QrCodeIcon className="w-40 h-40 text-foreground" />
               </div>
-              <div className="w-full bg-[#2C2C2E] p-4 rounded-xl text-center font-mono text-sm break-all text-neutral-300">
+              <div className="w-full bg-surface p-3 rounded-xl text-center font-mono text-xs break-all text-foreground select-all">
                 {quote.depositAddress}
               </div>
               <button
                 onClick={pollStatus}
-                className="w-full bg-indigo-500 hover:bg-indigo-400 text-white font-semibold py-4 rounded-xl transition-all"
+                className="btn btn-ink btn-block"
               >
                 I have sent the funds
               </button>
@@ -151,29 +154,29 @@ export function FundAnyChainModal({ onClose }: { onClose: () => void }) {
           )}
 
           {step === "depositing" && (
-            <div className="flex flex-col gap-6 items-center py-8">
-              <div className="w-16 h-16 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
-              <p className="text-neutral-300 font-medium">Waiting for funds to arrive on Monad...</p>
-              <p className="text-sm text-neutral-500 text-center">
-                This usually takes about 30 seconds via Aurora Intents.
+            <div className="flex flex-col gap-4 items-center py-6">
+              <div className="w-10 h-10 border-2 border-sealed border-t-transparent rounded-full animate-spin" />
+              <p className="text-foreground text-sm font-medium">Waiting for funds to arrive on Monad…</p>
+              <p className="text-xs text-mute text-center">
+                Settles in ~30 seconds via Aurora Intents confidential route.
               </p>
             </div>
           )}
 
           {step === "success" && (
-            <div className="flex flex-col gap-6 items-center py-4">
-              <div className="w-16 h-16 bg-green-500/20 text-green-400 rounded-full flex items-center justify-center">
-                <ArrowRightIcon className="w-8 h-8" />
+            <div className="flex flex-col gap-4 items-center py-4">
+              <div className="w-12 h-12 bg-sealed-soft text-sealed rounded-full flex items-center justify-center">
+                <ArrowRightIcon className="w-6 h-6" />
               </div>
-              <h3 className="text-2xl font-bold text-white text-center">Funds Arrived!</h3>
-              <p className="text-neutral-400 text-center">
-                Your USDC has successfully crossed over to Monad. Shield it now to finalize privacy.
+              <h3 className="text-lg font-medium text-foreground text-center">Funds Arrived!</h3>
+              <p className="text-xs text-mute text-center">
+                Your USDC has successfully arrived on Monad. Shield it now into your private balance.
               </p>
               <button
                 onClick={handleShieldNow}
-                className="w-full bg-green-500 hover:bg-green-400 text-white font-semibold py-4 rounded-xl transition-all text-lg"
+                className="btn btn-ink btn-block"
               >
-                Shield Now
+                Shield into Private Balance
               </button>
             </div>
           )}

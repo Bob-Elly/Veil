@@ -161,31 +161,37 @@ export default function Home() {
         </div>
 
         {/* Action Buttons (Gloam Vault buttons) */}
-        <div className="relative z-10 flex flex-wrap gap-2 pt-4 border-t border-line/60">
-          <button
-            onClick={() => setIsDepositOpen(true)}
+        <div className="relative z-10 flex flex-wrap gap-2.5 pt-4 border-t border-line/60">
+          <Link
+            href="/vault?tab=shield"
             className="btn btn-ink btn-sm"
           >
             Add money (Shield)
-          </button>
-          <button
-            onClick={() => setIsSendOpen(true)}
+          </Link>
+          <Link
+            href="/vault?tab=move"
             className="btn btn-accent btn-sm"
           >
             Send privately
-          </button>
-          <button
-            onClick={() => setIsWithdrawOpen(true)}
+          </Link>
+          <Link
+            href="/vault?tab=cashout"
             className="btn btn-ghost btn-sm"
           >
-            Cash out (Withdraw)
-          </button>
-          <button
-            onClick={() => setIsFundOpen(true)}
+            Cash out
+          </Link>
+          <Link
+            href="/vault?tab=fund"
             className="btn btn-ghost btn-sm"
           >
             Fund from Base
-          </button>
+          </Link>
+          <Link
+            href="/vault"
+            className="btn btn-ghost btn-sm ml-auto text-mute hover:text-foreground"
+          >
+            Open Vault Hub →
+          </Link>
         </div>
       </div>
 
