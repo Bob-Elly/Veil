@@ -37,8 +37,8 @@ export function WithdrawModal({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="gl-panel bg-panel border border-line p-7 rounded-[24px] w-full max-w-md shadow-card relative">
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4 rise">
+      <div className="gl-panel bg-panel border border-line-strong p-7 rounded-[20px] w-full max-w-md shadow-[var(--shadow-pop)] relative">
         <h2 className="text-xl font-light text-foreground mb-1">Cash out to a public wallet</h2>
         <p className="text-xs text-mute mb-4">Unshield to any Monad address. The relayer pays gas, so the address needs no history.</p>
         <AssetToggle asset={asset} setAsset={setAsset} />

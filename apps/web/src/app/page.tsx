@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import { Landing } from "@/components/landing/Landing";
+import { Veiled } from "@/components/ui/Veiled";
 import Link from "next/link";
 import { useApp } from "@/components/Providers";
-import { loginOrRegister } from "@/lib/wallet";
 import { SealedField, SealDots, KindBadge } from "@/components/ui/SealedField";
 import { DepositModal } from "@/components/DepositModal";
 import { SendModal } from "@/components/SendModal";
@@ -15,115 +16,17 @@ import { AssetToggle } from "@/components/ModalShell";
 
 export default function Home() {
   const { session, notes, isSyncing, triggerSync, asset, setAsset, balances, client } = useApp();
-  const [loading, setLoading] = useState(false);
   const [isDepositOpen, setIsDepositOpen] = useState(false);
+  const [showBal, setShowBal] = useState(false);
   const [isSendOpen, setIsSendOpen] = useState(false);
   const [isWithdrawOpen, setIsWithdrawOpen] = useState(false);
   const [isFundOpen, setIsFundOpen] = useState(false);
 
-  const handleLogin = async () => {
-    try {
-      setLoading(true);
-      await loginOrRegister();
-    } catch (e: any) {
-      alert("Authentication failed: " + (e.message || "Cancelled"));
-    } finally {
-      setLoading(false);
-    }
-  };
 
-  // If signed out: Gloam clean landing hero
-  if (!session) {
-    return (
-      <div className="flex flex-col items-center justify-center flex-1 py-12 sm:py-24">
-        {/* Glow Hero Panel */}
-        <div className="gl-panel w-full max-w-4xl rounded-[28px] border border-line bg-panel p-8 sm:p-16 shadow-card relative">
-          <SealedField />
+  // Signed out: marketing landing page
+  if (!session) return <Landing />;
 
-          <div className="relative z-10 max-w-2xl">
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-sealed-soft px-3 py-1 text-[12px] font-medium text-sealed mb-6">
-              <span className="h-1.5 w-1.5 rounded-full bg-sealed" />
-              Private payments on Monad
-            </span>
-
-            <h1 className="text-4xl sm:text-6xl font-light tracking-[-0.03em] text-foreground leading-[1.08] mb-6">
-              Pay people and agents without publishing amounts.
-            </h1>
-
-            <p className="text-lg text-mute leading-relaxed mb-10 max-w-xl">
-              Veil shields stablecoins on Monad with client-side zero-knowledge proofs. No seed phrase, no operator who can see your payroll, and settled in one block.
-            </p>
-
-            <div className="flex flex-wrap items-center gap-4">
-              <button
-                onClick={handleLogin}
-                disabled={loading}
-                className="btn btn-ink btn-lg"
-              >
-                {loading ? "Authenticating Passkey…" : "Sign in with Passkey →"}
-              </button>
-              <Link href="/verify" className="btn btn-ghost btn-lg">
-                Verify a receipt
-              </Link>
-            </div>
-          </div>
-        </div>
-
-        {/* Feature Cards Grid (Gloam live mini cards style) */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 w-full max-w-4xl mt-10">
-          <div className="gl-card p-6 flex flex-col justify-between">
-            <div>
-              <div className="flex items-center justify-between text-xs text-mute mb-4">
-                <span>Shielded Pool</span>
-                <KindBadge sealed={true} />
-              </div>
-              <h3 className="text-lg font-medium text-foreground mb-1">One-Click Shield</h3>
-              <p className="text-sm text-mute">
-                Deposit USDC or Agora AUSD from Monad, or confidential-swap from Base via Aurora Intents.
-              </p>
-            </div>
-            <div className="mt-6 pt-4 border-t border-line text-xs font-mono text-faint">
-              2-in / 2-out circuit
-            </div>
-          </div>
-
-          <div className="gl-card p-6 flex flex-col justify-between">
-            <div>
-              <div className="flex items-center justify-between text-xs text-mute mb-4">
-                <span>Batch Payments</span>
-                <span className="text-xs text-sealed font-medium">Agora AUSD</span>
-              </div>
-              <h3 className="text-lg font-medium text-foreground mb-1">Confidential Payroll</h3>
-              <p className="text-sm text-mute">
-                Pay remote teams from CSV. Recipients without a Veil account get instant claim links.
-              </p>
-            </div>
-            <div className="mt-6 pt-4 border-t border-line text-xs font-mono text-faint">
-              Sequential crash-safe
-            </div>
-          </div>
-
-          <div className="gl-card p-6 flex flex-col justify-between">
-            <div>
-              <div className="flex items-center justify-between text-xs text-mute mb-4">
-                <span>AI Infra</span>
-                <span className="text-xs text-foreground font-mono">@veil/mm-plugin</span>
-              </div>
-              <h3 className="text-lg font-medium text-foreground mb-1">Agent Wallets</h3>
-              <p className="text-sm text-mute">
-                AI agents pay each other and paid x402 APIs privately within owner-set guard limits.
-              </p>
-            </div>
-            <div className="mt-6 pt-4 border-t border-line text-xs font-mono text-faint">
-              Track 04 Trust & AI
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Signed in: Gloam Portfolio & Vault layout
+  // Signed in: portfolio
   const balance = notes.reduce((a, b) => a + (b.spent ? 0n : b.amount), 0n);
   const formattedBalance = (Number(balance) / 1_000_000).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const mainVeilAddress = veilAddressOf(session.keys.main);
@@ -148,13 +51,16 @@ export default function Home() {
               <KindBadge sealed={true} />
             </div>
             <p className="tnum text-4xl sm:text-6xl font-light tracking-[-0.03em] text-foreground">
-              ${formattedBalance} <span className="text-xl sm:text-2xl text-mute">{asset}</span>
+              <Veiled open={showBal}>${formattedBalance}</Veiled> <span className="text-xl sm:text-2xl text-mute">{asset}</span>
             </p>
             <div className="mt-3"><AssetToggle asset={asset} setAsset={setAsset} /></div>
-            <p className="text-[11px] text-mute">USDC {fmt(balances.USDC)} · AUSD {fmt(balances.AUSD)}</p>
+            <p className="text-[11px] text-mute">USDC <Veiled open={showBal}>{fmt(balances.USDC)}</Veiled> · AUSD <Veiled open={showBal}>{fmt(balances.AUSD)}</Veiled> · hover to peek</p>
           </div>
 
           <div className="flex items-center gap-2">
+            <button onClick={() => setShowBal((v) => !v)} className="btn btn-ghost btn-sm" aria-pressed={showBal}>
+              {showBal ? "Hide amounts" : "Show amounts"}
+            </button>
             <button
               onClick={() => triggerSync()}
               disabled={isSyncing}
@@ -217,7 +123,7 @@ export default function Home() {
             ) : (
               <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
                 {notes.map((n, i) => (
-                  <div key={i} className="flex justify-between items-center p-3 rounded-xl bg-surface text-xs">
+                  <div key={i} className="veil-hover flex justify-between items-center p-3 rounded-xl bg-surface text-xs transition-colors hover:bg-surface-2">
                     <div>
                       <p className="font-medium text-foreground">Note #{n.index ?? i}</p>
                       <p className="text-[11px] text-mute">
@@ -225,9 +131,11 @@ export default function Home() {
                       </p>
                     </div>
                     <div className="text-right">
-                      <span className={`font-medium tnum block ${n.spent ? "text-mute line-through" : "text-sealed"}`}>
-                        ${(Number(n.amount) / 1_000_000).toFixed(2)}
-                      </span>
+                      <Veiled open={showBal} mode="group">
+                        <span className={`font-medium tnum block ${n.spent ? "text-mute line-through" : "text-sealed"}`}>
+                          ${(Number(n.amount) / 1_000_000).toFixed(2)}
+                        </span>
+                      </Veiled>
                       <a
                         className="text-[11px] text-mute underline"
                         href={`/verify#${btoa(JSON.stringify({ chainId: CHAIN_ID, pool: client(asset)?.pool.address, index: n.index, amount: n.amount.toString(), pubKey: n.pubKey.toString(), blinding: n.blinding.toString(), commitment: n.commitment.toString() }))}`}
