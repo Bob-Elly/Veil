@@ -59,30 +59,59 @@ veil-monad/
 
 ---
 
-## 🛠️ Quickstart
+## 🛠️ Quickstart (Monad testnet)
 
-### Prerequisites
-- Node.js >= 20
-- pnpm >= 9
-- Foundry (`forge` / `anvil`)
+Prerequisites: Node.js ≥ 20, pnpm ≥ 9, Foundry (`forge`/`anvil`).
 
-### 1. Install Dependencies
 ```bash
 pnpm install
+pnpm --filter @veil/sdk build
+
+# 1. Relayer: pays gas for private txs and serves the pool's commitments (Monad's RPC caps eth_getLogs at 100 blocks)
+cp .env.example .env            # set RELAYER_PK to a funded testnet key
+node services/relayer/index.js  # :3001 (ships a seeded testnet cache, then tails new blocks)
+
+# 2. Web app
+echo "NEXT_PUBLIC_RELAYER_URL=http://localhost:3001" > apps/web/.env.local
+pnpm --filter web dev           # http://localhost:3000
+
+# 3. Optional: x402 demo merchant (sells a quote for 0.01 USDC, paid privately)
+node apps/demo-api/index.js     # :3002
 ```
 
-### 2. Run Contracts & Tests
+In the app: **Sign in with Passkey** → your funding wallet address is shown (derived from the passkey).
+Send it testnet USDC ([faucet.circle.com](https://faucet.circle.com)) or click **mint 100 test AUSD**; the relayer drips
+gas MON automatically. Then **Shield** → **Pay privately** (to a `veil:` address, or to an email to get a claim link) →
+**Cash out**.
+
+### Tests
+
 ```bash
-cd contracts
-forge test
+cd contracts && forge test                 # 21 Foundry tests (pool, StreamVault, Cleanverse gate)
+pnpm --filter @veil/sdk test               # SDK unit tests
+
+# Full stack on a local chain: contracts + relayer + SDK + shipped circuit artifacts + x402 merchant
+anvil &                                    # separate terminal
+(cd contracts && forge build)
+node e2e/client-e2e.mjs                    # 18 checks: deposit, private send w/ change, withdraw, auto-merge, x402, recovery
+node e2e/mm-plugin-e2e.mjs                 # 9 checks: the real `mm veil …` commands with a stub MetaMask context
+node e2e/verify-testnet.mjs                # proves the deployed testnet verifier accepts proofs from the shipped zkey
 ```
 
-### 3. Run Web App
-```bash
-cd apps/web
-pnpm dev
-```
-Open [http://localhost:3000](http://localhost:3000) to access the application.
+### What is live vs. preview
+
+| Piece | Status |
+|---|---|
+| Shielded pools (USDC, AUSD), Groth16 verifier, Poseidon | Deployed on Monad testnet (table above); verifier checked against the shipped zkey |
+| Passkey key tree (Mera PRF) · shield · private send · claim links · cash out · payroll | Working end to end (browser-tested with a virtual passkey on a local chain) |
+| **Real Monad testnet run** (`node e2e/testnet-e2e.mjs`) | Shield [0x43ea…](https://testnet.monadvision.com/tx/0x43ea73ac7ae6dfdc59c574450c042b5c055ec96358ac4374c328c700d11ee6eb) · private send [0x1dab…](https://testnet.monadvision.com/tx/0x1dab2267afc0e058d3e4a0f3862346161a418726f06abfeee72b9db14b677bc0) · cash out to a fresh address [0xe5c6…](https://testnet.monadvision.com/tx/0xe5c6f3560c8d0093226668ded38d65acdc5eff8fe45a7af1f30d17e3950772d6), ~3 s each |
+| Relayer (gas relay, gas drip, commitment cache) | Working; run it yourself with a funded key |
+| MetaMask Agent Wallet plugin (`mm veil …`) incl. private x402 | Working (e2e with stub wallet context) |
+| x402 `shielded` scheme + demo merchant | Working (e2e) |
+| Chainlink CRE workflow | Type-checks and compiles to WASM with `cre-compile`; StreamVault `onReport` tested in Foundry; not deployed to a DON |
+| Envio HyperIndex | Config + handlers in `indexer/`; the app uses it when `NEXT_PUBLIC_ENVIO_URL` is set, otherwise the relayer cache |
+| Aurora fund-from-Base | Real quote request (needs `NEXT_PUBLIC_AURORA_KEY`); delivers Monad **mainnet** USDC to the funding wallet |
+| Campaigns page | UI preview with sample data; contracts + CRE workflow are the real parts |
 
 ---
 

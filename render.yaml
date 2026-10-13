@@ -1,0 +1,17 @@
+# Render Blueprint: the Veil relayer (gas relay + gas drip + commitment cache).
+# New → Blueprint → pick this repo. You'll be asked for RELAYER_PK (a funded Monad testnet key).
+services:
+  - type: web
+    name: veil-relayer
+    runtime: node
+    plan: free
+    buildCommand: npm install -g pnpm@9 && pnpm install --frozen-lockfile=false --filter relayer...
+    startCommand: node services/relayer/index.js
+    healthCheckPath: /status
+    envVars:
+      - key: RELAYER_PK
+        sync: false
+      - key: RPC_URL
+        value: https://testnet-rpc.monad.xyz
+      - key: NODE_VERSION
+        value: "20"

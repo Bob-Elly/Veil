@@ -89,7 +89,7 @@ export function FundAnyChainModal({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4 rise">
       <div className="gl-panel bg-panel border border-line w-full max-w-md rounded-[24px] overflow-hidden shadow-card">
         <div className="px-6 py-5 border-b border-line flex items-center justify-between">
           <div>

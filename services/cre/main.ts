@@ -79,8 +79,8 @@ const onCron = (runtime: Runtime<Config>) => {
             const r = runtime.runInNodeMode(
                 (nr: NodeRuntime<Config>) => fetchPost(nr, token, ids[i], users[i]),
                 ConsensusAggregationByFields<{ impressions: number; valid: number }>({ 
-                    impressions: median<number>(), 
-                    valid: median<number>() 
+                    impressions: median,
+                    valid: median
                 })
             )().result();
             

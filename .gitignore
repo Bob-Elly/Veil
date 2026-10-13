@@ -5,3 +5,8 @@ contracts/out
 contracts/cache
 .env*
 !.env.example
+# relayer commitment cache: keep the testnet seed, ignore local chains
+services/relayer/.cache/31337-*
+deployments/anvil.json
+*.log
+apps/web/.next

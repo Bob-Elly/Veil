@@ -28,18 +28,31 @@
   "mm": {
     "schemaVersion": 1,
     "minCliVersion": "^7.0.0",
-    "targetChains": [10143, 143],
+    "targetChains": [
+      10143,
+      143
+    ],
     "capabilities": [],
     "commands": [
       {
         "id": "veil:setup",
-        "capabilities": ["wallet-read", "wallet-submit"],
-        "dataAccess": ["accounts"]
+        "capabilities": [
+          "wallet-read",
+          "wallet-submit"
+        ],
+        "dataAccess": [
+          "accounts"
+        ]
       },
       {
         "id": "veil:deposit",
-        "capabilities": ["wallet-read", "wallet-submit"],
-        "dataAccess": ["balances"]
+        "capabilities": [
+          "wallet-read",
+          "wallet-submit"
+        ],
+        "dataAccess": [
+          "balances"
+        ]
       },
       {
         "id": "veil:balance",
@@ -58,8 +71,12 @@
       },
       {
         "id": "veil:withdraw",
-        "capabilities": ["wallet-read"],
-        "dataAccess": ["accounts"]
+        "capabilities": [
+          "wallet-read"
+        ],
+        "dataAccess": [
+          "accounts"
+        ]
       },
       {
         "id": "veil:guard:set",
@@ -87,10 +104,13 @@
     "@metamask/agent-wallet": "^7.0.0"
   },
   "dependencies": {
-    "@veil/sdk": "workspace:*"
+    "@oclif/core": "^4.14.0",
+    "@veil/sdk": "workspace:*",
+    "viem": "^2.57.4"
   },
   "devDependencies": {
     "@metamask/agent-wallet": "^7.0.0",
+    "@types/node": "^20.19.43",
     "oclif": "^4",
     "typescript": "^5"
   }

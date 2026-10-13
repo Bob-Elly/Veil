@@ -1,0 +1,12 @@
+import { readFileSync } from "node:fs";
+import { createPublicClient, http } from "viem";
+import { monadTestnet } from "viem/chains";
+import { treeFromLeaves } from "../packages/sdk/dist/index.js";
+const pool = process.argv[2];
+const j = JSON.parse(readFileSync(`services/relayer/.cache/10143-${pool}.json`, "utf8"));
+const leaves = j.leaves.map((l) => ({ ...l, commitment: BigInt(l.commitment) }));
+const tree = await treeFromLeaves(leaves);
+const pub = createPublicClient({ chain: monadTestnet, transport: http("https://testnet-rpc.monad.xyz") });
+const abi = [{ type: "function", name: "currentRoot", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] }, { type: "function", name: "isKnownRoot", stateMutability: "view", inputs: [{ type: "uint256" }], outputs: [{ type: "bool" }] }];
+const local = await tree.root();
+console.log("leaves", leaves.length, "local root known on-chain:", await pub.readContract({ address: pool, abi, functionName: "isKnownRoot", args: [local] }));

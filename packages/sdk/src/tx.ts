@@ -6,7 +6,8 @@ import { MerkleTree } from "./tree.js";
 import { FIELD_SIZE, LEVELS, MAX_NOTE_AMOUNT } from "./constants.js";
 import { randomBytes } from "@noble/hashes/utils";
 import { toHex } from "viem";
-import { VeilKeys, parseAddress } from "./index.js";
+import { VeilKeys } from "./keys.js";
+import { parseAddress } from "./address.js";
 
 function randomField() {
   return BigInt(toHex(randomBytes(31)));
@@ -119,13 +120,27 @@ export async function buildDeposit(amount: bigint, changeKeys: VeilKeys, tree: M
 export async function buildTransfer(toAddr: string, amount: bigint, fee: bigint, relayer: string, inputs: Note[], changeKeys: VeilKeys, tree: MerkleTree, prover: any) {
     const to = parseAddress(toAddr);
     const change = inputs.reduce((a, b) => a + b.amount, 0n) - amount - fee;
+    if (change < 0n) throw new Error("insufficient inputs");
     return buildTransaction({
-        tree, inputs, outputs: [{ amount, pubKey: to.pubKey, encPub: to.encPub }], fee, relayer, changeKeys, prover
+        tree, inputs, fee, relayer, changeKeys, prover,
+        outputs: [{ amount, pubKey: to.pubKey, encPub: to.encPub }, { amount: change, pubKey: changeKeys.pubKey, encPub: changeKeys.encPub }],
     });
 }
 
 export async function buildWithdraw(recipient: string, amount: bigint, fee: bigint, relayer: string, inputs: Note[], changeKeys: VeilKeys, tree: MerkleTree, prover: any) {
+    const change = inputs.reduce((a, b) => a + b.amount, 0n) - amount - fee;
+    if (change < 0n) throw new Error("insufficient inputs");
     return buildTransaction({
-        tree, inputs, extAmount: -amount, recipient, fee, relayer, changeKeys, prover
+        tree, inputs, extAmount: -amount, recipient, fee, relayer, changeKeys, prover,
+        outputs: [{ amount: change, pubKey: changeKeys.pubKey, encPub: changeKeys.encPub }],
+    });
+}
+
+/** Combine two notes into one (self-transfer). Needed when no 1 or 2 notes cover a payment. */
+export async function buildMerge(inputs: Note[], fee: bigint, relayer: string, changeKeys: VeilKeys, tree: MerkleTree, prover: any) {
+    const total = inputs.reduce((a, b) => a + b.amount, 0n) - fee;
+    return buildTransaction({
+        tree, inputs, fee, relayer, changeKeys, prover,
+        outputs: [{ amount: total, pubKey: changeKeys.pubKey, encPub: changeKeys.encPub }],
     });
 }

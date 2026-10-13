@@ -127,7 +127,7 @@ export default function CampaignsPage() {
         timestamp: "Just now"
       };
       setSubmissions(prev => [newSub, ...prev]);
-      setSubmitStatus("Success! Post enrolled. Chainlink CRE consensus run in ~2 minutes will verify impressions and disburse shielded note.");
+      setSubmitStatus("Preview: added locally. On-chain, the campaign admin calls StreamVault.registerPost and the CRE workflow verifies impressions and pays a private note.");
       setPostUrl("");
       setXHandle("");
     }, 1200);
@@ -152,6 +152,14 @@ export default function CampaignsPage() {
         <p className="text-sm text-mute max-w-2xl">
           Automated performance marketing with zero financial leak. StreamVault locks private ad budgets; Chainlink CRE nodes verify X impressions and disburse private shielded notes directly to creators.
         </p>
+      </div>
+
+      <div className="rounded-xl border border-line bg-surface p-3 text-xs text-mute">
+        <span className="font-medium text-foreground">Preview.</span> Campaigns and submissions on this page are sample data. The on-chain parts are real and tested:
+        <span className="font-mono"> StreamVault.sol</span> (80/20 holdback, per-post caps, private payouts into the pool via <span className="font-mono">depositTo</span>; 11 Foundry tests),
+        <span className="font-mono"> StreamVaultFactory</span> at {""}
+        <a className="underline font-mono" href="https://testnet.monadvision.com/address/0x6a3a7df1ae3fd0922e3c29935d0e040cfab63560" target="_blank" rel="noreferrer">0x6a3a…3560</a>,
+        and the Chainlink CRE workflow in <span className="font-mono">services/cre</span>.
       </div>
 
       {/* Top High-Level Metrics */}

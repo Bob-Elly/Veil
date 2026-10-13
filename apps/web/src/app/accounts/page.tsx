@@ -1,4 +1,5 @@
 "use client";
+import { veilAddressOf, bytesToHex } from "@/lib/veil";
 
 import { useState, useEffect } from "react";
 import { useApp } from "@/components/Providers";
@@ -23,7 +24,7 @@ export default function AccountsPage() {
         const k = await session.keys.agent(i);
         keys.push({
           index: i,
-          address: `veil:0x${k.pubKey.toString(16).padStart(64, "0")}${Buffer.from(k.encPub).toString("hex")}`,
+          address: veilAddressOf(k),
           budget: defaultBudgets[i] || "100 USDC / day"
         });
       }
@@ -73,9 +74,9 @@ export default function AccountsPage() {
     );
   }
 
-  const mainVeilAddress = `veil:0x${session.keys.main.pubKey.toString(16).padStart(64, "0")}${Buffer.from(session.keys.main.encPub).toString("hex")}`;
-  const auditViewKey = `veilview:0x${session.keys.auditEnc.pubKey.toString(16).padStart(64, "0")}${Buffer.from(session.keys.auditEnc.encPub).toString("hex")}`;
-  const atRestHex = `0x${Buffer.from(session.keys.atRestKey).toString("hex")}`;
+  const mainVeilAddress = veilAddressOf(session.keys.main);
+  const auditViewKey = veilAddressOf(session.keys.auditEnc).replace("veil:", "veilview:");
+  const atRestHex = `0x${bytesToHex(session.keys.atRestKey)}`;
 
   const downloadAuditPack = () => {
     const pack = {

@@ -1,80 +1,68 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { POOLS, RELAYER_URL, txUrl } from "@/lib/config";
+import { fmt, publicClient } from "@/lib/veil";
 import { KindBadge, SealDots } from "@/components/ui/SealedField";
 
 type IndexedEvent = {
   id: string;
-  type: "Deposit / Shield" | "Private Transfer" | "Cash Out / Unshield";
+  type: "Deposit / Shield" | "Shielded transaction";
+  pool: string;
   blockNumber: number;
   txHash: string;
-  leafIndex?: number;
-  nullifier?: string;
-  commitment?: string;
-  timestamp: string;
+  leafIndex: number;
 };
+
+const ERC20_BAL = [{ type: "function", name: "balanceOf", stateMutability: "view", inputs: [{ type: "address" }], outputs: [{ type: "uint256" }] }] as const;
+const ROOT_ABI = [{ type: "function", name: "currentRoot", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] }] as const;
 
 export default function TransparencyPage() {
   const [filter, setFilter] = useState<"all" | "deposits" | "transfers" | "withdrawals">("all");
+  const [stats, setStats] = useState({ usdcTvl: "…", ausdTvl: "…", commitments: 0, txs: 0, currentRoot: "…", solvencyRatio: "on-chain" });
+  const [recentEvents, setRecentEvents] = useState<IndexedEvent[]>([]);
+  const [err, setErr] = useState<string | null>(null);
 
-  const stats = {
-    usdcTvl: "128,450.00",
-    ausdTvl: "74,200.00",
-    commitments: 1420,
-    nullifiers: 980,
-    currentRoot: "0x2e8f1b94a73e48123ccb104928e08d64119e0fa951d9501c6f37cbb22f84091a",
-    solvencyRatio: "100.00%",
-  };
-
-  const recentEvents: IndexedEvent[] = [
-    {
-      id: "ev-1",
-      type: "Private Transfer",
-      blockNumber: 4921044,
-      txHash: "0x892a014e912fdca08942b104ee93a401c9a419208a0d91834920a10b4821a419",
-      nullifier: "0x1402a...98e4",
-      timestamp: "45 secs ago"
-    },
-    {
-      id: "ev-2",
-      type: "Deposit / Shield",
-      blockNumber: 4921038,
-      txHash: "0x3429fa0184b029ea9401bca094204810a9c018241940182a40b9104812048201",
-      leafIndex: 1419,
-      commitment: "0x289fa...319a",
-      timestamp: "2 mins ago"
-    },
-    {
-      id: "ev-3",
-      type: "Private Transfer",
-      blockNumber: 4921020,
-      txHash: "0x1928fa40184029410940182a40184029410a4019284019284019284019284019",
-      nullifier: "0x9812b...4410",
-      timestamp: "5 mins ago"
-    },
-    {
-      id: "ev-4",
-      type: "Cash Out / Unshield",
-      blockNumber: 4920991,
-      txHash: "0x9482014918204918204918204918204918204918204918204918204918204918",
-      nullifier: "0x7710a...1102",
-      timestamp: "12 mins ago"
-    },
-    {
-      id: "ev-5",
-      type: "Deposit / Shield",
-      blockNumber: 4920950,
-      txHash: "0x7720194820194820194820194820194820194820194820194820194820194820",
-      leafIndex: 1418,
-      commitment: "0x5109b...9901",
-      timestamp: "18 mins ago"
-    }
-  ];
+  useEffect(() => {
+    let stop = false;
+    const load = async () => {
+      try {
+        const safe = async <T,>(f: () => Promise<T>): Promise<T | null> => { try { return await f(); } catch { return null; } };
+        const [usdc, ausd, root] = await Promise.all([
+          safe(() => publicClient.readContract({ address: POOLS.USDC.token, abi: ERC20_BAL, functionName: "balanceOf", args: [POOLS.USDC.address] })),
+          safe(() => publicClient.readContract({ address: POOLS.AUSD.token, abi: ERC20_BAL, functionName: "balanceOf", args: [POOLS.AUSD.address] })),
+          safe(() => publicClient.readContract({ address: POOLS.USDC.address, abi: ROOT_ABI, functionName: "currentRoot" })),
+        ]);
+        // Every NewCommitment, from the relayer cache. A deposit adds 1 leaf; any private
+        // transaction (transfer or cash-out, which look identical on-chain) adds 2.
+        const events: IndexedEvent[] = [];
+        let commitments = 0, txs = 0;
+        for (const s of ["USDC", "AUSD"] as const) {
+          const res = await safe(() => fetch(`${RELAYER_URL}/commitments?pool=${POOLS[s].address}&from=0`).then((r) => r.json()));
+          const leaves: any[] = res?.commitments || [];
+          commitments += leaves.length;
+          const byTx = new Map<string, any[]>();
+          for (const l of leaves) byTx.set(l.txHash || `leaf-${l.index}`, [...(byTx.get(l.txHash || `leaf-${l.index}`) || []), l]);
+          txs += byTx.size;
+          for (const [tx, ls] of byTx) events.push({ id: `${s}-${tx}`, type: ls.length === 1 ? "Deposit / Shield" : "Shielded transaction", pool: s, blockNumber: ls[0].blockNumber, txHash: tx, leafIndex: ls[0].index });
+        }
+        if (stop) return;
+        events.sort((x, y) => y.blockNumber - x.blockNumber);
+        setRecentEvents(events.slice(0, 25));
+        setStats({ usdcTvl: usdc === null ? "n/a" : fmt(usdc as bigint), ausdTvl: ausd === null ? "n/a" : fmt(ausd as bigint), commitments, txs, currentRoot: root === null ? "n/a" : `0x${(root as bigint).toString(16).padStart(64, "0")}`, solvencyRatio: "on-chain" });
+        setErr(null);
+      } catch (e: any) {
+        if (!stop) setErr(e.message);
+      }
+    };
+    load();
+    const t = setInterval(load, 15000);
+    return () => { stop = true; clearInterval(t); };
+  }, []);
 
   const filteredEvents = recentEvents.filter((ev) => {
     if (filter === "deposits") return ev.type === "Deposit / Shield";
-    if (filter === "transfers") return ev.type === "Private Transfer";
-    if (filter === "withdrawals") return ev.type === "Cash Out / Unshield";
+    if (filter === "transfers" || filter === "withdrawals") return ev.type === "Shielded transaction";
     return true;
   });
 
@@ -87,12 +75,12 @@ export default function TransparencyPage() {
             System Transparency & Proof-of-Reserves
           </h1>
           <span className="inline-flex items-center rounded-full bg-surface px-2.5 py-0.5 text-xs text-mute font-mono">
-            Envio HyperIndex
+            Live
           </span>
           <KindBadge sealed={true} />
         </div>
         <p className="text-sm text-mute max-w-2xl">
-          Real-time mathematical auditability and cryptographic solvency proofs. Zero knowledge of balances or counterparties, but 100% verification that total pool reserves equal total active unspent commitments.
+          Anyone can audit the pools: total reserves, every commitment and the current Merkle root are public. Who paid whom, and how much, is not.
         </p>
       </div>
 
@@ -101,7 +89,7 @@ export default function TransparencyPage() {
         <div className="gl-card p-5">
           <span className="text-[13px] text-mute block mb-1">USDC Pool TVL</span>
           <span className="tnum text-2xl font-light text-foreground">${stats.usdcTvl}</span>
-          <span className="text-[11px] text-sealed mt-1 block font-medium">100% Backed Reserves</span>
+          <span className="text-[11px] text-sealed mt-1 block font-medium">Tokens held by the pool contract</span>
         </div>
         <div className="gl-card p-5">
           <span className="text-[13px] text-mute block mb-1">Agora AUSD TVL</span>
@@ -111,12 +99,12 @@ export default function TransparencyPage() {
         <div className="gl-card p-5">
           <span className="text-[13px] text-mute block mb-1">Merkle Commitments</span>
           <span className="tnum text-2xl font-light text-foreground">{stats.commitments.toLocaleString()}</span>
-          <span className="text-[11px] text-mute mt-1 block">Depth 20 Poseidon Tree</span>
+          <span className="text-[11px] text-mute mt-1 block">USDC + AUSD, depth-20 Poseidon trees</span>
         </div>
         <div className="gl-card p-5">
-          <span className="text-[13px] text-mute block mb-1">Active Unspent Notes</span>
-          <span className="tnum text-2xl font-light text-foreground">{(stats.commitments - stats.nullifiers).toLocaleString()}</span>
-          <span className="text-[11px] text-sealed mt-1 block font-medium">Zero double-spends</span>
+          <span className="text-[13px] text-mute block mb-1">Pool Transactions</span>
+          <span className="tnum text-2xl font-light text-foreground">{stats.txs.toLocaleString()}</span>
+          <span className="text-[11px] text-sealed mt-1 block font-medium">Nullifiers block double-spends</span>
         </div>
       </div>
 
@@ -124,14 +112,14 @@ export default function TransparencyPage() {
       <div className="gl-card p-6">
         <div className="flex flex-wrap justify-between items-center gap-4 mb-4">
           <div>
-            <h3 className="text-base font-medium text-foreground">Current Merkle Tree Root</h3>
+            <h3 className="text-base font-medium text-foreground">Current Merkle Tree Root (USDC pool)</h3>
             <p className="text-xs text-mute">
               All client-side Groth16 membership proofs are verified against this root on-chain.
             </p>
           </div>
           <span className="inline-flex items-center gap-1.5 rounded-full bg-sealed-soft px-3 py-1 text-xs font-medium text-sealed">
             <span className="h-1.5 w-1.5 rounded-full bg-sealed" />
-            Verified Solvency: {stats.solvencyRatio}
+            Live from {stats.solvencyRatio} reads
           </span>
         </div>
 
@@ -154,7 +142,7 @@ export default function TransparencyPage() {
           </div>
           <div>
             <span className="text-mute block mb-1">Historical Roots Kept</span>
-            <span className="font-mono text-foreground font-medium">100 Root Ring</span>
+            <span className="font-mono text-foreground font-medium">All (never expire)</span>
           </div>
         </div>
       </div>
@@ -163,8 +151,8 @@ export default function TransparencyPage() {
       <div className="gl-card p-6">
         <div className="flex flex-wrap justify-between items-center gap-4 mb-6">
           <div>
-            <h3 className="text-base font-medium text-foreground">Envio HyperIndex Event Stream</h3>
-            <p className="text-xs text-mute">Live on-chain log stream indexed from Monad Testnet.</p>
+            <h3 className="text-base font-medium text-foreground">Pool Event Stream</h3>
+            <p className="text-xs text-mute">Every pool transaction on Monad testnet. Transfers and cash-outs are indistinguishable by design.{err ? ` (${err})` : ""}</p>
           </div>
 
           <div className="inline-flex rounded-full bg-surface p-1 text-xs">
@@ -190,30 +178,23 @@ export default function TransparencyPage() {
                 filter === "transfers" ? "bg-panel text-foreground font-medium shadow-card" : "text-mute hover:text-foreground"
               }`}
             >
-              Transfers
-            </button>
-            <button
-              onClick={() => setFilter("withdrawals")}
-              className={`rounded-full px-3 py-1 transition-colors ${
-                filter === "withdrawals" ? "bg-panel text-foreground font-medium shadow-card" : "text-mute hover:text-foreground"
-              }`}
-            >
-              Cash Outs
+              Private txs
             </button>
           </div>
         </div>
 
         <div className="divide-y divide-line">
+          {filteredEvents.length === 0 && <p className="py-4 text-xs text-mute">No pool activity yet.</p>}
           {filteredEvents.map((ev) => (
             <div key={ev.id} className="py-3.5 flex flex-wrap items-center justify-between gap-3 text-xs font-mono">
               <div className="space-y-1">
                 <div className="flex items-center gap-2 font-sans">
                   <span className="font-medium text-foreground">{ev.type}</span>
-                  <span className="text-[11px] text-mute font-mono">Block #{ev.blockNumber}</span>
+                  <span className="text-[11px] text-mute font-mono">{ev.pool} · Block #{ev.blockNumber}</span>
                   <KindBadge sealed={ev.type !== "Deposit / Shield"} />
                 </div>
                 <div className="text-[11px] text-mute">
-                  Tx: <span className="text-foreground">{ev.txHash.slice(0, 16)}…{ev.txHash.slice(-10)}</span>
+                  Tx: <a className="text-foreground underline" href={txUrl(ev.txHash)} target="_blank" rel="noreferrer">{ev.txHash.slice(0, 16)}…{ev.txHash.slice(-10)}</a>
                 </div>
               </div>
 
@@ -221,10 +202,7 @@ export default function TransparencyPage() {
                 {ev.leafIndex !== undefined && (
                   <span className="text-sealed block">Leaf Index #{ev.leafIndex}</span>
                 )}
-                {ev.nullifier && (
-                  <span className="text-mute block">Nullifier: {ev.nullifier}</span>
-                )}
-                <span className="text-[11px] text-faint block">{ev.timestamp}</span>
+
               </div>
             </div>
           ))}
@@ -241,7 +219,7 @@ export default function TransparencyPage() {
               <span className="text-mute text-[11px]">Primary deposit & transfer verifier</span>
             </div>
             <span className="text-foreground select-all bg-surface px-2.5 py-1 rounded-lg border border-line">
-              0x57c2502f0522d2128f72ea867d2225fb15aeb1d1
+              {POOLS.USDC.address}
             </span>
           </div>
           <div className="py-3 flex flex-wrap justify-between items-center gap-2">
@@ -250,7 +228,7 @@ export default function TransparencyPage() {
               <span className="text-mute text-[11px]">Cross-border confidential pool</span>
             </div>
             <span className="text-foreground select-all bg-surface px-2.5 py-1 rounded-lg border border-line">
-              0x409b1d63174407550f773d405e4068e147362d18
+              {POOLS.AUSD.address}
             </span>
           </div>
           <div className="py-3 flex flex-wrap justify-between items-center gap-2">
