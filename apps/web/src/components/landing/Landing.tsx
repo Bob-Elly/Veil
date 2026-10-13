@@ -122,31 +122,22 @@ export function Landing() {
         <div aria-hidden className="pointer-events-none absolute inset-0 bg-[radial-gradient(120%_80%_at_20%_100%,#09090a_30%,transparent_70%)]" />
         <div aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-background to-transparent" />
 
-        <div className="relative z-10 mx-auto w-full max-w-[1320px] px-5 sm:px-9 pb-14 sm:pb-20 pt-32 grid gap-12 lg:grid-cols-[1.35fr_1fr] items-end">
-          <div>
-            <div className="rise inline-flex items-center gap-2 rounded-md border border-line bg-black/40 px-2.5 py-1 text-[12px] text-soft backdrop-blur" style={{ ["--d" as any]: "0.05s" }}>
-              <span className="h-1.5 w-1.5 rounded-[2px] bg-accent" style={{ animation: "veil-pulse 2.4s infinite" }} />
-              Live on Monad testnet · Track 04
-            </div>
-            <h1 className="mt-6 text-[44px] leading-[0.98] sm:text-[68px] xl:text-[80px] font-light tracking-[-0.045em]">
-              <span className="rise block" style={{ ["--d" as any]: "0.12s" }}>Pay anyone on Monad.</span>
-              <span className="rise block text-mute" style={{ ["--d" as any]: "0.24s" }}>
-                Nobody else sees <Veiled delay={1.2} className="text-foreground">how much</Veiled>.
-              </span>
-            </h1>
-            <p className="rise mt-7 max-w-[540px] text-[17px] leading-relaxed text-soft" style={{ ["--d" as any]: "0.36s" }}>
-              Payroll, creator payouts and agent spending in USDC and AUSD, with the amounts and the people kept off the public record.
-              Sign in with a passkey. Proofs are made on your device.
-            </p>
-            <div className="rise mt-9 flex flex-wrap items-center gap-4" style={{ ["--d" as any]: "0.48s" }}>
-              <button onClick={launch} disabled={busy} className="btn btn-ink btn-lg">{busy ? "Waiting for passkey…" : "Launch app ↗"}</button>
-              <a href="#how" className="link-u text-[15px] text-soft hover:text-foreground transition-colors">How it stays private →</a>
-            </div>
-            {err && <p className="mt-4 text-sm text-danger">{err}</p>}
+        <div className="relative z-10 mx-auto w-full max-w-[1320px] px-5 sm:px-9 pb-16 sm:pb-24 pt-32">
+          <div className="rise inline-flex items-center gap-2 rounded-md border border-line bg-black/40 px-2.5 py-1 text-[12px] text-soft backdrop-blur" style={{ ["--d" as any]: "0.05s" }}>
+            <span className="h-1.5 w-1.5 rounded-[2px] bg-accent" style={{ animation: "veil-pulse 2.4s infinite" }} />
+            Live on Monad testnet
           </div>
-          <div className="rise" style={{ ["--d" as any]: "0.6s" }}>
-            <ExplorerCard explorer={explorerView} setExplorer={setExplorerView} />
+          <h1 className="mt-6 text-[46px] leading-[0.98] sm:text-[80px] xl:text-[100px] font-light tracking-[-0.045em]">
+            <span className="rise block" style={{ ["--d" as any]: "0.12s" }}>Pay anyone on Monad.</span>
+            <span className="rise block text-mute" style={{ ["--d" as any]: "0.24s" }}>
+              Nobody else sees <Veiled delay={1.2} className="text-foreground">how much</Veiled>.
+            </span>
+          </h1>
+          <div className="rise mt-10 flex flex-wrap items-center gap-5" style={{ ["--d" as any]: "0.4s" }}>
+            <button onClick={launch} disabled={busy} className="btn btn-ink btn-lg">{busy ? "Waiting for passkey…" : "Launch app ↗"}</button>
+            <a href="#how" className="link-u text-[15px] text-soft hover:text-foreground transition-colors">How it works →</a>
           </div>
+          {err && <p className="mt-4 text-sm text-danger">{err}</p>}
         </div>
       </section>
 
@@ -167,7 +158,6 @@ export function Landing() {
           <Veiled delay={0.9} className="text-foreground">supplier</Veiled> is public, and every{" "}
           <Veiled delay={1.6} className="text-foreground">treasury move</Veiled> gets front-run.
           <span className="text-mute"> Veil keeps settlement public and the details private. </span>
-          <span className="text-faint text-[0.6em] align-middle whitespace-nowrap">(hover the boxes)</span>
         </p>
       </section>
 
@@ -206,9 +196,8 @@ export function Landing() {
               Sender, recipient and amount are sealed in Poseidon commitments. Share a receipt when you choose to; anyone can check it at <Link href="/verify" className="link-u text-foreground">/verify</Link>.
             </p>
           </div>
-          <div className="reveal grid sm:grid-cols-2 gap-4" style={{ ["--d" as any]: "0.12s" }}>
-            <TxPanel title="MonadVision" sub="public" sealed />
-            <TxPanel title="Your receipt" sub="private" />
+          <div className="reveal" style={{ ["--d" as any]: "0.12s" }}>
+            <ExplorerCard explorer={explorerView} setExplorer={setExplorerView} />
           </div>
         </div>
       </section>
@@ -319,7 +308,6 @@ function UseCase({ k, t, d, rows, mono }: { k: string; t: string; d: string; row
     <Spotlight className="reveal veil-hover p-7 sm:p-9">
       <div className="flex items-center justify-between">
         <span className="text-[12px] uppercase tracking-[0.18em] text-accent-hi">{k}</span>
-        <span className="text-[11px] text-faint opacity-0 group-hover:opacity-100 transition-opacity duration-500">your view</span>
       </div>
       <h3 className="mt-5 text-[26px] sm:text-[30px] font-light leading-tight">{t}</h3>
       <p className="mt-3 text-[15px] leading-relaxed text-mute max-w-lg">{d.split("`").map((p, i) => i % 2 ? <span key={i} className="font-mono text-[13px] text-soft">{p}</span> : p)}</p>
@@ -332,26 +320,6 @@ function UseCase({ k, t, d, rows, mono }: { k: string; t: string; d: string; row
         ))}
       </div>
     </Spotlight>
-  );
-}
-
-function TxPanel({ title, sub, sealed }: { title: string; sub: string; sealed?: boolean }) {
-  const rows: [string, string][] = [["method", "transact()"], ["from", "0x7099…79C8 (relayer)"], ["to", "VeilPool"], ["sender", "Treasury · Acme"], ["recipient", "alice.veil"], ["amount", "4,800.00 USDC"]];
-  return (
-    <div className={`rounded-2xl border p-5 ${sealed ? "border-line bg-black/50" : "border-accent/40 bg-accent-soft"}`}>
-      <div className="flex items-center justify-between mb-4">
-        <span className="text-[14px]">{title}</span>
-        <span className={`text-[11px] uppercase tracking-[0.14em] ${sealed ? "text-faint" : "text-accent-hi"}`}>{sub}</span>
-      </div>
-      <dl className="space-y-2.5 font-mono text-[12px]">
-        {rows.map(([k, v], i) => (
-          <div key={k} className="flex justify-between gap-3">
-            <dt className="text-faint">{k}</dt>
-            <dd className="text-right text-soft truncate">{sealed && i >= 3 ? <Veiled open={false} mode="group" delay={i * 0.4}><span>{v}</span></Veiled> : v}</dd>
-          </div>
-        ))}
-      </dl>
-    </div>
   );
 }
 

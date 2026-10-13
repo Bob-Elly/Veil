@@ -54,7 +54,7 @@ export default function Home() {
               <Veiled open={showBal}>${formattedBalance}</Veiled> <span className="text-xl sm:text-2xl text-mute">{asset}</span>
             </p>
             <div className="mt-3"><AssetToggle asset={asset} setAsset={setAsset} /></div>
-            <p className="text-[11px] text-mute">USDC <Veiled open={showBal}>{fmt(balances.USDC)}</Veiled> · AUSD <Veiled open={showBal}>{fmt(balances.AUSD)}</Veiled> · hover to peek</p>
+            <p className="text-[11px] text-mute">USDC <Veiled open={showBal}>{fmt(balances.USDC)}</Veiled> · AUSD <Veiled open={showBal}>{fmt(balances.AUSD)}</Veiled></p>
           </div>
 
           <div className="flex items-center gap-2">
