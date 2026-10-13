@@ -4,6 +4,10 @@
 
 :root {
   color-scheme: dark;
+  /* self-hosted via @fontsource-variable (no network at build time) */
+  --font-body: "Inter Variable";
+  --font-display-face: "Inter Tight Variable";
+  --font-mono-face: "JetBrains Mono Variable";
   /* Veil: dark editorial. One accent (Monad purple); "sealed" = private = purple. */
   --accent: #836ef9;
   --accent-hi: #a594ff;
