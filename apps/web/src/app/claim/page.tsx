@@ -31,8 +31,7 @@ export default function ClaimPage() {
     for (const s of SYMBOLS) {
       const c = cs[s];
       if (!c) continue;
-      await c.sync();
-      out[s] = c.balance;
+      try { await c.sync(); out[s] = c.balance; } catch (e) { console.warn(`[claim] ${s} sync failed`, e); }
     }
     setBalances(out);
   };

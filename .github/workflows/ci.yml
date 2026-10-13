@@ -77,3 +77,28 @@ jobs:
 
       - name: Build Web App
         run: pnpm --filter web build
+
+  e2e:
+    name: Full-stack e2e (anvil + relayer + SDK + x402 + mm plugin)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: nightly
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: pnpm install --no-frozen-lockfile
+      - run: pnpm --filter @veil/sdk build
+      - run: cd contracts && forge build
+      - run: cd packages/mm-plugin && npx tsc -p tsconfig.json
+      - name: Run e2e
+        run: |
+          anvil --silent &
+          sleep 2
+          node e2e/client-e2e.mjs
+          node e2e/mm-plugin-e2e.mjs

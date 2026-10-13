@@ -27,18 +27,19 @@ export default function TransparencyPage() {
     let stop = false;
     const load = async () => {
       try {
+        const safe = async <T,>(f: () => Promise<T>): Promise<T | null> => { try { return await f(); } catch { return null; } };
         const [usdc, ausd, root] = await Promise.all([
-          publicClient.readContract({ address: POOLS.USDC.token, abi: ERC20_BAL, functionName: "balanceOf", args: [POOLS.USDC.address] }),
-          publicClient.readContract({ address: POOLS.AUSD.token, abi: ERC20_BAL, functionName: "balanceOf", args: [POOLS.AUSD.address] }),
-          publicClient.readContract({ address: POOLS.USDC.address, abi: ROOT_ABI, functionName: "currentRoot" }),
+          safe(() => publicClient.readContract({ address: POOLS.USDC.token, abi: ERC20_BAL, functionName: "balanceOf", args: [POOLS.USDC.address] })),
+          safe(() => publicClient.readContract({ address: POOLS.AUSD.token, abi: ERC20_BAL, functionName: "balanceOf", args: [POOLS.AUSD.address] })),
+          safe(() => publicClient.readContract({ address: POOLS.USDC.address, abi: ROOT_ABI, functionName: "currentRoot" })),
         ]);
         // Every NewCommitment, from the relayer cache. A deposit adds 1 leaf; any private
         // transaction (transfer or cash-out, which look identical on-chain) adds 2.
         const events: IndexedEvent[] = [];
         let commitments = 0, txs = 0;
         for (const s of ["USDC", "AUSD"] as const) {
-          const res = await fetch(`${RELAYER_URL}/commitments?pool=${POOLS[s].address}&from=0`).then((r) => r.json());
-          const leaves: any[] = res.commitments || [];
+          const res = await safe(() => fetch(`${RELAYER_URL}/commitments?pool=${POOLS[s].address}&from=0`).then((r) => r.json()));
+          const leaves: any[] = res?.commitments || [];
           commitments += leaves.length;
           const byTx = new Map<string, any[]>();
           for (const l of leaves) byTx.set(l.txHash || `leaf-${l.index}`, [...(byTx.get(l.txHash || `leaf-${l.index}`) || []), l]);
@@ -48,7 +49,7 @@ export default function TransparencyPage() {
         if (stop) return;
         events.sort((x, y) => y.blockNumber - x.blockNumber);
         setRecentEvents(events.slice(0, 25));
-        setStats({ usdcTvl: fmt(usdc as bigint), ausdTvl: fmt(ausd as bigint), commitments, txs, currentRoot: `0x${(root as bigint).toString(16).padStart(64, "0")}`, solvencyRatio: "on-chain" });
+        setStats({ usdcTvl: usdc === null ? "n/a" : fmt(usdc as bigint), ausdTvl: ausd === null ? "n/a" : fmt(ausd as bigint), commitments, txs, currentRoot: root === null ? "n/a" : `0x${(root as bigint).toString(16).padStart(64, "0")}`, solvencyRatio: "on-chain" });
         setErr(null);
       } catch (e: any) {
         if (!stop) setErr(e.message);
@@ -74,12 +75,12 @@ export default function TransparencyPage() {
             System Transparency & Proof-of-Reserves
           </h1>
           <span className="inline-flex items-center rounded-full bg-surface px-2.5 py-0.5 text-xs text-mute font-mono">
-            Envio HyperIndex
+            Live
           </span>
           <KindBadge sealed={true} />
         </div>
         <p className="text-sm text-mute max-w-2xl">
-          Real-time mathematical auditability and cryptographic solvency proofs. Zero knowledge of balances or counterparties, but 100% verification that total pool reserves equal total active unspent commitments.
+          Anyone can audit the pools: total reserves, every commitment and the current Merkle root are public. Who paid whom, and how much, is not.
         </p>
       </div>
 
@@ -218,7 +219,7 @@ export default function TransparencyPage() {
               <span className="text-mute text-[11px]">Primary deposit & transfer verifier</span>
             </div>
             <span className="text-foreground select-all bg-surface px-2.5 py-1 rounded-lg border border-line">
-              0x57c2502f0522d2128f72ea867d2225fb15aeb1d1
+              {POOLS.USDC.address}
             </span>
           </div>
           <div className="py-3 flex flex-wrap justify-between items-center gap-2">
@@ -227,7 +228,7 @@ export default function TransparencyPage() {
               <span className="text-mute text-[11px]">Cross-border confidential pool</span>
             </div>
             <span className="text-foreground select-all bg-surface px-2.5 py-1 rounded-lg border border-line">
-              0x409b1d63174407550f773d405e4068e147362d18
+              {POOLS.AUSD.address}
             </span>
           </div>
           <div className="py-3 flex flex-wrap justify-between items-center gap-2">
