@@ -5,6 +5,7 @@ import {
 } from "@category-labs/mera";
 import { keysFromPrf } from "@veil/sdk";
 import { privateKeyToAccount } from "viem/accounts";
+import { toHex } from "viem";
 
 export type VeilSession = {
   prfOutput: Uint8Array;
@@ -72,7 +73,7 @@ export async function loginOrRegister(forceCreate = false) {
     // Derive the keys
     const keys = await keysFromPrf(prfOutput);
     // Viem account from the public EOA key
-    const hexKey = `0x${Buffer.from(keys.publicAccountKey).toString("hex")}` as `0x${string}`;
+    const hexKey = toHex(keys.publicAccountKey);
     const publicAccount = privateKeyToAccount(hexKey);
     
     setSession({ prfOutput, keys, publicAccount });

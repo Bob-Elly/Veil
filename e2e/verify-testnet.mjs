@@ -1,0 +1,23 @@
+import { readFileSync } from "node:fs";
+import * as snarkjs from "snarkjs";
+import { createPublicClient, http, zeroAddress } from "viem";
+import { monadTestnet } from "viem/chains";
+import * as V from "./veil-core.mjs";
+const pub = createPublicClient({ chain: monadTestnet, transport: http("https://testnet-rpc.monad.xyz") });
+const keys = await V.VeilKeys.fromSeed(new Uint8Array(32).fill(7));
+const tree = new V.MerkleTree();
+let captured;
+const prover = async (input) => {
+  const s = (v) => Array.isArray(v) ? v.map(s) : v.toString();
+  const { proof, publicSignals } = await snarkjs.groth16.fullProve(Object.fromEntries(Object.entries(input).map(([k,v])=>[k,s(v)])), "../apps/web/public/circuits/transaction2x2.wasm", "../apps/web/public/circuits/transaction2x2_final.zkey");
+  captured = { proof, publicSignals };
+  return { proof, publicSignals };
+};
+const { proofArgs, publicSignals } = await V.buildTransaction({ tree, outputs: [{ amount: 1000000n, pubKey: keys.pubKey, encPub: keys.encPub }], extAmount: 1000000n, changeKeys: keys, wasm: "../apps/web/public/circuits/transaction2x2.wasm", zkey: "../apps/web/public/circuits/transaction2x2_final.zkey" });
+const { a, b, c } = proofArgs;
+const abi = [{ type: "function", name: "verifyProof", stateMutability: "view", inputs: [{type:"uint256[2]"},{type:"uint256[2][2]"},{type:"uint256[2]"},{type:"uint256[7]"}], outputs: [{type:"bool"}] }];
+const r = await pub.readContract({ address: "0x6b985d08c0a530b972c9c268d6c220b336abf14c", abi, functionName: "verifyProof", args: [a, b, c, publicSignals.map(BigInt)] });
+console.log("testnet verifier accepts proof:", r);
+const root = await pub.readContract({ address: "0x57c2502f0522d2128f72ea867d2225fb15aeb1d1", abi: [{type:"function",name:"isKnownRoot",stateMutability:"view",inputs:[{type:"uint256"}],outputs:[{type:"bool"}]}], functionName: "isKnownRoot", args: [BigInt(publicSignals[0])] });
+console.log("empty-tree root known on pool:", root);
+process.exit(0);

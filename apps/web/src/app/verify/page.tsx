@@ -3,6 +3,7 @@
 import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { poseidon } from "@veil/sdk";
+import { RELAYER_URL } from "@/lib/config";
 import { KindBadge, SealDots } from "@/components/ui/SealedField";
 
 type ReceiptData = {
@@ -28,6 +29,7 @@ function VerifyContent() {
     pubKey?: string;
     index?: number;
     memo?: string;
+    onChain?: boolean | null;
     error?: string;
   } | null>(null);
 
@@ -54,8 +56,6 @@ function VerifyContent() {
 
     const commitment = await poseidon([amountBig, pubKeyBig, blindingBig]);
     const receiptObj: ReceiptData = {
-      chainId: 10143,
-      pool: "0x57c2502f0522d2128f72ea867d2225fb15aeb1d1",
       index,
       amount: amountBig.toString(),
       pubKey: `0x${pubKeyBig.toString(16)}`,
@@ -103,7 +103,16 @@ function VerifyContent() {
       const expectedCommitment = BigInt(parsed.commitment);
 
       const computed = await poseidon([amountBig, pubKeyBig, blindingBig]);
-      const matches = computed === expectedCommitment;
+      let matches = computed === expectedCommitment;
+
+      // Is this commitment really leaf #index of the pool? (null = sample receipt with no pool)
+      let onChain: boolean | null = null;
+      if (parsed.pool && parsed.index !== undefined) {
+        const res = await fetch(`${RELAYER_URL}/commitments?pool=${parsed.pool}&from=${parsed.index}`).then((r) => r.json());
+        const leaf = res.commitments?.[0];
+        onChain = !!leaf && Number(leaf.index) === Number(parsed.index) && BigInt(leaf.commitment) === computed;
+        matches = matches && onChain;
+      }
 
       setResult({
         valid: matches,
@@ -113,7 +122,8 @@ function VerifyContent() {
         pubKey: `0x${pubKeyBig.toString(16)}`,
         index: parsed.index,
         memo: parsed.memo,
-        error: matches ? undefined : "Computed Poseidon commitment does not match receipt opening"
+        onChain,
+        error: matches ? undefined : onChain === false ? "Opening is self-consistent but no such commitment exists at that leaf in the pool" : "Computed Poseidon commitment does not match receipt opening"
       });
     } catch (e: any) {
       setResult({
@@ -231,6 +241,10 @@ function VerifyContent() {
               <div className="flex justify-between py-2.5">
                 <span className="text-mute">Poseidon Hash Match</span>
                 <span className="font-mono text-sealed truncate max-w-[340px]">{result.computedCommitment}</span>
+              </div>
+              <div className="flex justify-between py-2.5">
+                <span className="text-mute">On-chain leaf</span>
+                <span className={`font-mono ${result.onChain ? "text-sealed" : "text-mute"}`}>{result.onChain === null || result.onChain === undefined ? "sample receipt (no pool given)" : result.onChain ? `found at leaf #${result.index}` : "not found"}</span>
               </div>
             </div>
           ) : (

@@ -5,3 +5,4 @@ contracts/out
 contracts/cache
 .env*
 !.env.example
+services/relayer/.cache

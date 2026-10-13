@@ -16,4 +16,4 @@ export * from "./wallet.js";
 export * from "./submit.js";
 export * from "./disclose.js";
 export * from "./x402.js";
-export * from "./payroll.js";
+export * from "./payroll.js";export * from "./client.js";

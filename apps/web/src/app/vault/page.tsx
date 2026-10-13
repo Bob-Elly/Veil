@@ -3,23 +3,16 @@
 import { useState, useMemo, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
+import { parseUnits } from "viem";
 import { useApp } from "@/components/Providers";
-import { parseUnits, createWalletClient, http, erc20Abi, encodeFunctionData, parseAbiItem, publicActions } from "viem";
-import { monadTestnet } from "viem/chains";
-import { buildDeposit, buildTransfer, buildWithdraw, selectInputs, MerkleTree, VeilKeys } from "@veil/sdk";
 import { getProver } from "@/lib/prover";
-import { submitToRelayer } from "@/lib/relayer";
 import { loginOrRegister } from "@/lib/wallet";
+import { POOLS } from "@/lib/config";
+import { createClaimTarget, ensureGas, fmt, parseAmount, walletClientFor } from "@/lib/veil";
 import { SealedField, SealDots, KindBadge } from "@/components/ui/SealedField";
 
-const POOL_ADDRESS = "0x57c2502f0522d2128f72ea867d2225fb15aeb1d1";
-const USDC_TOKEN = "0x534b2f3A21130d7a60830c2Df862319e593943A3";
-const AUSD_TOKEN = "0x409b1d63174407550f773d405e4068e147362d18";
-const RELAYER_ADDRESS = "0x8335b308bc7226d2e24b51aa7a52a986b5f27e1960103700ecffc9d8fad4fa50";
-
-const transactAbi = [
-  parseAbiItem("function transact((uint256[2] a, uint256[2][2] b, uint256[2] c, uint256 root, uint256 publicAmount, uint256 extDataHash, uint256[2] inputNullifiers, uint256[2] outputCommitments) proof, (address recipient, int256 extAmount, address relayer, uint256 fee, bytes encryptedOutput1, bytes encryptedOutput2) extData) external")
-];
+const AURORA_KEY = process.env.NEXT_PUBLIC_AURORA_KEY || "";
+const AURORA_API = "https://intents-api.aurora.dev/api";
 
 function VaultContent() {
   const router = useRouter();
@@ -29,8 +22,7 @@ function VaultContent() {
     initialTab === "move" || initialTab === "cashout" || initialTab === "fund" ? initialTab : "shield"
   );
 
-  const { session, notes, isSyncing, triggerSync } = useApp();
-  const [assetChoice, setAssetChoice] = useState<"USDC" | "AUSD">("USDC");
+  const { session, notes, isSyncing, triggerSync, asset: assetChoice, setAsset: setAssetChoice, client, syncError } = useApp();
   const [amount, setAmount] = useState("");
   const [recipient, setRecipient] = useState("");
   const [authLoading, setAuthLoading] = useState(false);
@@ -39,12 +31,12 @@ function VaultContent() {
   const [txHash, setTxHash] = useState<string | null>(null);
   const [claimLink, setClaimLink] = useState<string | null>(null);
 
-  // Cross-chain fund state
+  // Cross-chain fund state (Aurora Intents 1Click quote)
   const [fundQuote, setFundQuote] = useState<{ depositAddress: string; expiresAt: number } | null>(null);
 
   const unspentNotes = useMemo(() => notes.filter(n => !n.spent), [notes]);
   const balance = useMemo(() => unspentNotes.reduce((a, b) => a + b.amount, 0n), [unspentNotes]);
-  const formattedBalance = (Number(balance) / 1_000_000).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const formattedBalance = fmt(balance);
 
   const handleTabChange = (newTab: "shield" | "move" | "cashout" | "fund") => {
     setTab(newTab);
@@ -65,209 +57,111 @@ function VaultContent() {
     }
   };
 
-  // 1. SHIELD / ADD
-  const handleShield = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!session || !amount) return;
+  const run = async (fn: () => Promise<void>) => {
+    setError(null);
+    setTxHash(null);
+    setClaimLink(null);
     try {
-      setError(null);
-      setTxHash(null);
-      setStatus("Preparing Groth16 zero-knowledge proof…");
-
-      const amountUnits = parseUnits(amount, 6);
-      if (amountUnits <= 0n) throw new Error("Amount must be greater than 0");
-
-      const prover = await getProver();
-      const tree = new MerkleTree();
-      for (const n of notes) {
-        if (n.commitment) await tree.insert(n.commitment);
-      }
-
-      const { proofArgs, extData } = await buildDeposit(amountUnits, session.keys.main, tree, prover);
-
-      setStatus(`Approving ${assetChoice} on Monad…`);
-      const client = createWalletClient({
-        account: session.publicAccount,
-        chain: monadTestnet,
-        transport: http("https://testnet-rpc.monad.xyz/")
-      }).extend(publicActions);
-
-      const tokenAddr = assetChoice === "USDC" ? USDC_TOKEN : AUSD_TOKEN;
-
-      const approveGas = await client.estimateContractGas({
-        address: tokenAddr,
-        abi: erc20Abi,
-        functionName: "approve",
-        args: [POOL_ADDRESS, amountUnits],
-        account: session.publicAccount
-      });
-
-      const approveTx = await client.writeContract({
-        address: tokenAddr,
-        abi: erc20Abi,
-        functionName: "approve",
-        args: [POOL_ADDRESS, amountUnits],
-        gas: (approveGas * 115n) / 100n
-      });
-
-      setStatus("Waiting for Monad block confirmation…");
-      await client.waitForTransactionReceipt({ hash: approveTx });
-
-      setStatus("Submitting shielded transaction to pool…");
-      const args = [
-        proofArgs,
-        {
-          recipient: extData.recipient as `0x${string}`,
-          extAmount: extData.extAmount,
-          relayer: extData.relayer as `0x${string}`,
-          fee: extData.fee,
-          encryptedOutput1: extData.encryptedOutput1 as `0x${string}`,
-          encryptedOutput2: extData.encryptedOutput2 as `0x${string}`
-        }
-      ] as const;
-
-      const tx = await client.writeContract({
-        address: POOL_ADDRESS,
-        abi: transactAbi,
-        functionName: "transact",
-        args,
-        gas: 2_500_000n
-      });
-
-      await client.waitForTransactionReceipt({ hash: tx });
-      setTxHash(tx);
-      setStatus("Deposit shielded successfully into private balance!");
-      setAmount("");
-      triggerSync();
+      await fn();
     } catch (e: any) {
       console.error(e);
-      setError(e.shortMessage || e.message || "Failed to shield funds");
+      setError(e.shortMessage || e.message || "Something went wrong");
+    } finally {
       setStatus(null);
     }
   };
 
-  // 2. PAY / SEND PRIVATELY
-  const handlePay = async (e: React.FormEvent) => {
+  // 1. SHIELD / ADD: depositTo from the passkey's funding wallet (no proof needed)
+  const handleShield = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!session || !amount || !recipient) return;
-    try {
-      setError(null);
-      setTxHash(null);
-      setClaimLink(null);
-      setStatus("Selecting unspent notes and proving Groth16 transfer…");
+    const c = client(assetChoice);
+    if (!session || !amount || !c) return;
+    return run(async () => {
+      const units = parseAmount(amount, POOLS[assetChoice].decimals);
+      await ensureGas(session, setStatus);
+      const hash = await c.deposit(walletClientFor(session), units, setStatus);
+      setTxHash(hash);
+      setAmount("");
+      await triggerSync();
+    });
+  };
 
-      const amountUnits = parseUnits(amount, 6);
-      const selection = selectInputs(unspentNotes, amountUnits);
-
-      let targetAddress = recipient.trim();
-      let generatedClaim: string | null = null;
-
-      if (!targetAddress.startsWith("veil:0x")) {
-        const seed = crypto.getRandomValues(new Uint8Array(32));
-        const claimKeys = await VeilKeys.fromSeed(seed);
-        targetAddress = `veil:0x${claimKeys.pubKey.toString(16).padStart(64, "0")}${Buffer.from(claimKeys.encPub).toString("hex")}`;
-        const seedHex = Buffer.from(seed).toString("hex");
-        generatedClaim = `${window.location.origin}/claim#${seedHex}`;
-        setClaimLink(generatedClaim);
+  // 2. PAY PRIVATELY: veil: address, or a claim link for anyone else
+  const handlePay = (e: React.FormEvent) => {
+    e.preventDefault();
+    const c = client(assetChoice);
+    if (!session || !amount || !recipient || !c) return;
+    return run(async () => {
+      const units = parseAmount(amount, POOLS[assetChoice].decimals);
+      let to = recipient.trim();
+      let link: string | null = null;
+      if (!to.startsWith("veil:")) {
+        const claim = await createClaimTarget();
+        to = claim.address;
+        link = claim.link;
       }
-
-      const prover = await getProver();
-      const tree = new MerkleTree();
-      for (const n of notes) {
-        if (n.commitment) await tree.insert(n.commitment);
-      }
-
-      setStatus("Computing Poseidon commitments & nullifiers…");
-      const { proofArgs, extData } = await buildTransfer(
-        targetAddress,
-        amountUnits,
-        0n,
-        RELAYER_ADDRESS,
-        selection.inputs,
-        session.keys.main,
-        tree,
-        prover
-      );
-
-      setStatus("Relaying private transfer anonymously…");
-      const res = await submitToRelayer(POOL_ADDRESS, proofArgs, extData);
-      setTxHash(res.txHash);
-      setStatus("Payment completed with zero metadata leakage!");
+      setStatus("Loading prover…");
+      const hash = await c.send(to, units, await getProver(), setStatus);
+      setTxHash(hash);
+      setClaimLink(link);
       setAmount("");
       setRecipient("");
-      triggerSync();
-    } catch (e: any) {
-      console.error(e);
-      setError(e.shortMessage || e.message || "Failed to complete private payment");
-      setStatus(null);
-    }
+      await triggerSync();
+    });
   };
 
-  // 3. CASH OUT / WITHDRAW
-  const handleCashout = async (e: React.FormEvent) => {
+  // 3. CASH OUT / WITHDRAW via the gas relayer
+  const handleCashout = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!session || !amount || !recipient) return;
-    try {
-      setError(null);
-      setTxHash(null);
-      setStatus("Proving unshield zero-knowledge circuit…");
-
-      const amountUnits = parseUnits(amount, 6);
-      const selection = selectInputs(unspentNotes, amountUnits);
-
-      const prover = await getProver();
-      const tree = new MerkleTree();
-      for (const n of notes) {
-        if (n.commitment) await tree.insert(n.commitment);
-      }
-
-      setStatus("Verifying tree root & spending nullifiers…");
-      const { proofArgs, extData } = await buildWithdraw(
-        recipient.trim(),
-        amountUnits,
-        0n,
-        RELAYER_ADDRESS,
-        selection.inputs,
-        session.keys.main,
-        tree,
-        prover
-      );
-
-      setStatus("Submitting unshield via gas relayer…");
-      const res = await submitToRelayer(POOL_ADDRESS, proofArgs, extData);
-      setTxHash(res.txHash);
-      setStatus("Funds unshielded to destination address!");
+    const c = client(assetChoice);
+    if (!session || !amount || !recipient || !c) return;
+    return run(async () => {
+      const units = parseAmount(amount, POOLS[assetChoice].decimals);
+      setStatus("Loading prover…");
+      const hash = await c.withdraw(recipient.trim(), units, await getProver(), setStatus);
+      setTxHash(hash);
       setAmount("");
       setRecipient("");
-      triggerSync();
-    } catch (e: any) {
-      console.error(e);
-      setError(e.shortMessage || e.message || "Failed to withdraw funds");
-      setStatus(null);
-    }
+      await triggerSync();
+    });
   };
 
-  // 4. CROSS-CHAIN FUNDING
-  const handleFundQuote = async (e: React.FormEvent) => {
+  // 4. CROSS-CHAIN FUNDING: Aurora Intents confidential swap Base USDC → Monad USDC (lands in the funding wallet, then Shield)
+  const handleFundQuote = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!amount) return;
-    try {
-      setError(null);
+    if (!amount || !session) return;
+    return run(async () => {
+      if (!AURORA_KEY) throw new Error("Set NEXT_PUBLIC_AURORA_KEY (free key from studio.aurora.dev) to request Aurora routes.");
       setStatus("Fetching Aurora Intents route from Base…");
-      // Simulate/request quote
-      setTimeout(() => {
-        setFundQuote({
-          depositAddress: "0x742d35Cc6634C0532925a3b844Bc454e4438f44e",
-          expiresAt: Date.now() + 15 * 60 * 1000
-        });
-        setStatus(null);
-      }, 800);
-    } catch (e: any) {
-      setError(e.message || "Failed to route cross-chain deposit");
-      setStatus(null);
-    }
+      const tokens = await fetch(`${AURORA_API}/tokens/${AURORA_KEY}`).then((r) => r.json());
+      const list: any[] = tokens.tokens ?? tokens;
+      const dest = list.find((t) => t.blockchain === "monad" && t.symbol === "USDC");
+      const origin = list.find((t) => t.blockchain === "base" && t.symbol === "USDC");
+      if (!dest || !origin) throw new Error("Aurora did not list Base USDC → Monad USDC right now");
+      const res = await fetch(`${AURORA_API}/quote/${AURORA_KEY}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          dry: false,
+          confidentiality: "advanced",
+          swapType: "EXACT_INPUT",
+          amount: parseUnits(amount, origin.decimals ?? 6).toString(),
+          originAsset: origin.assetId,
+          destinationAsset: dest.assetId,
+          depositType: "ORIGIN_CHAIN",
+          recipient: session.publicAccount.address,
+          recipientType: "DESTINATION_CHAIN",
+          refundTo: session.publicAccount.address,
+          refundType: "ORIGIN_CHAIN",
+          slippageTolerance: 100,
+          deadline: new Date(Date.now() + 15 * 60_000).toISOString(),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.quote?.depositAddress) throw new Error(data.message || "Aurora quote failed");
+      setFundQuote({ depositAddress: data.quote.depositAddress, expiresAt: Date.now() + 15 * 60_000 });
+    });
   };
-
   return (
     <div className="space-y-6 max-w-5xl mx-auto w-full">
       {/* Header */}
@@ -377,6 +271,12 @@ function VaultContent() {
                     <p className="text-xs text-mute mt-1">
                       Move funds from your public Monad wallet into your private shielded balance. From there you can pay anyone without the amount showing up.
                     </p>
+                    {session && (
+                      <p className="text-[11px] text-mute mt-2">
+                        Funding wallet (derived from your passkey): <span className="font-mono text-foreground break-all">{session.publicAccount.address}</span>.
+                        Send it testnet {assetChoice} first{assetChoice === "AUSD" ? " (or use “mint test AUSD” on the dashboard)" : " (faucet.circle.com)"}; gas is dripped by the relayer.
+                      </p>
+                    )}
                   </div>
 
                   <div className="rounded-[18px] bg-surface p-4 sm:p-5">
@@ -694,7 +594,7 @@ function VaultContent() {
                     <KindBadge sealed={true} />
                   </div>
                   <div className="font-mono text-[11px] text-mute break-all">
-                    Tx: {txHash}
+                    Tx: <a className="underline" href={`${process.env.NEXT_PUBLIC_EXPLORER_URL || "https://testnet.monadvision.com"}/tx/${txHash}`} target="_blank" rel="noreferrer">{txHash}</a>
                   </div>
                   {claimLink && (
                     <div className="pt-2 border-t border-line text-left">
@@ -728,7 +628,7 @@ function VaultContent() {
               ${session ? formattedBalance : "0.00"}
             </p>
             <p className="text-[11px] text-mute mt-1">
-              {notes.length} unspent notes in local encrypted store
+              {unspentNotes.length} unspent notes · synced via {process.env.NEXT_PUBLIC_ENVIO_URL ? "Envio" : "relayer cache"}{syncError ? ` · ${syncError}` : ""}
             </p>
 
             <div className="mt-4 pt-4 border-t border-line flex gap-2">

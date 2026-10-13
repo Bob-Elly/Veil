@@ -9,9 +9,12 @@ import { DepositModal } from "@/components/DepositModal";
 import { SendModal } from "@/components/SendModal";
 import { WithdrawModal } from "@/components/WithdrawModal";
 import { FundAnyChainModal } from "@/components/FundAnyChainModal";
+import { fmt, veilAddressOf } from "@/lib/veil";
+import { CHAIN_ID } from "@/lib/config";
+import { AssetToggle } from "@/components/ModalShell";
 
 export default function Home() {
-  const { session, notes, isSyncing, triggerSync } = useApp();
+  const { session, notes, isSyncing, triggerSync, asset, setAsset, balances, client } = useApp();
   const [loading, setLoading] = useState(false);
   const [isDepositOpen, setIsDepositOpen] = useState(false);
   const [isSendOpen, setIsSendOpen] = useState(false);
@@ -123,7 +126,7 @@ export default function Home() {
   // Signed in: Gloam Portfolio & Vault layout
   const balance = notes.reduce((a, b) => a + (b.spent ? 0n : b.amount), 0n);
   const formattedBalance = (Number(balance) / 1_000_000).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  const mainVeilAddress = `veil:0x${session.keys.main.pubKey.toString(16).padStart(64, "0")}${Buffer.from(session.keys.main.encPub).toString("hex")}`;
+  const mainVeilAddress = veilAddressOf(session.keys.main);
 
   return (
     <div className="space-y-8 max-w-5xl mx-auto w-full">
@@ -145,8 +148,10 @@ export default function Home() {
               <KindBadge sealed={true} />
             </div>
             <p className="tnum text-4xl sm:text-6xl font-light tracking-[-0.03em] text-foreground">
-              ${formattedBalance} <span className="text-xl sm:text-2xl text-mute">USDC</span>
+              ${formattedBalance} <span className="text-xl sm:text-2xl text-mute">{asset}</span>
             </p>
+            <div className="mt-3"><AssetToggle asset={asset} setAsset={setAsset} /></div>
+            <p className="text-[11px] text-mute">USDC {fmt(balances.USDC)} · AUSD {fmt(balances.AUSD)}</p>
           </div>
 
           <div className="flex items-center gap-2">
@@ -219,9 +224,19 @@ export default function Home() {
                         {n.spent ? "Nullified (spent)" : "Active commitment"}
                       </p>
                     </div>
-                    <span className={`font-medium tnum ${n.spent ? "text-mute line-through" : "text-sealed"}`}>
-                      ${(Number(n.amount) / 1_000_000).toFixed(2)}
-                    </span>
+                    <div className="text-right">
+                      <span className={`font-medium tnum block ${n.spent ? "text-mute line-through" : "text-sealed"}`}>
+                        ${(Number(n.amount) / 1_000_000).toFixed(2)}
+                      </span>
+                      <a
+                        className="text-[11px] text-mute underline"
+                        href={`/verify#${btoa(JSON.stringify({ chainId: CHAIN_ID, pool: client(asset)?.pool.address, index: n.index, amount: n.amount.toString(), pubKey: n.pubKey.toString(), blinding: n.blinding.toString(), commitment: n.commitment.toString() }))}`}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        receipt
+                      </a>
+                    </div>
                   </div>
                 ))}
               </div>

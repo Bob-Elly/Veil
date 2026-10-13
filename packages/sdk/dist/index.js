@@ -266,17 +266,20 @@ async function buildDeposit(amount, changeKeys, tree, prover) {
 async function buildTransfer(toAddr, amount, fee, relayer, inputs, changeKeys, tree, prover) {
   const to = parseAddress(toAddr);
   const change = inputs.reduce((a, b) => a + b.amount, 0n) - amount - fee;
+  if (change < 0n) throw new Error("insufficient inputs");
   return buildTransaction({
     tree,
     inputs,
-    outputs: [{ amount, pubKey: to.pubKey, encPub: to.encPub }],
     fee,
     relayer,
     changeKeys,
-    prover
+    prover,
+    outputs: [{ amount, pubKey: to.pubKey, encPub: to.encPub }, { amount: change, pubKey: changeKeys.pubKey, encPub: changeKeys.encPub }]
   });
 }
 async function buildWithdraw(recipient, amount, fee, relayer, inputs, changeKeys, tree, prover) {
+  const change = inputs.reduce((a, b) => a + b.amount, 0n) - amount - fee;
+  if (change < 0n) throw new Error("insufficient inputs");
   return buildTransaction({
     tree,
     inputs,
@@ -285,7 +288,20 @@ async function buildWithdraw(recipient, amount, fee, relayer, inputs, changeKeys
     fee,
     relayer,
     changeKeys,
-    prover
+    prover,
+    outputs: [{ amount: change, pubKey: changeKeys.pubKey, encPub: changeKeys.encPub }]
+  });
+}
+async function buildMerge(inputs, fee, relayer, changeKeys, tree, prover) {
+  const total = inputs.reduce((a, b) => a + b.amount, 0n) - fee;
+  return buildTransaction({
+    tree,
+    inputs,
+    fee,
+    relayer,
+    changeKeys,
+    prover,
+    outputs: [{ amount: total, pubKey: changeKeys.pubKey, encPub: changeKeys.encPub }]
   });
 }
 
@@ -320,12 +336,21 @@ function selectInputs(notes, target) {
   if (single) {
     return { inputs: [single], change: single.amount - target };
   }
+  let bestPair = null;
+  let bestSum = 0n;
   for (let i = 0; i < sorted.length; i++) {
     for (let j = i + 1; j < sorted.length; j++) {
-      if (sorted[i].amount + sorted[j].amount >= target) {
-        return { inputs: [sorted[i], sorted[j]], change: sorted[i].amount + sorted[j].amount - target };
+      const sum = sorted[i].amount + sorted[j].amount;
+      if (sum >= target) {
+        if (!bestPair || sum < bestSum) {
+          bestPair = [sorted[i], sorted[j]];
+          bestSum = sum;
+        }
       }
     }
+  }
+  if (bestPair) {
+    return { inputs: bestPair, change: bestSum - target };
   }
   if (sorted.length >= 2) {
     return { inputs: [], change: 0n, needsMerge: [sorted[0], sorted[1]] };
@@ -351,11 +376,80 @@ function parse(str) {
 }
 
 // src/sync.ts
-async function syncFromEnvio(url, lastBlock) {
-  return [];
+var ENVIO_QUERY = `
+query leaves($pool: String!, $from: numeric!) {
+  Commitment(where: { pool: { _eq: $pool }, index: { _gte: $from } }, order_by: { index: asc }, limit: 1000) {
+    index commitment memo blockNumber
+  }
+}`;
+function toLeaf(r) {
+  return { index: Number(r.index), commitment: BigInt(r.commitment), memo: r.memo, blockNumber: r.blockNumber != null ? Number(r.blockNumber) : void 0 };
 }
-async function syncFromRpc(publicClient, contractAddress, lastBlock) {
-  return [];
+async function fetchLeavesFromEnvio(envioUrl, pool, from = 0) {
+  const out = [];
+  let cursor = from;
+  for (; ; ) {
+    const res = await fetch(envioUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query: ENVIO_QUERY, variables: { pool: pool.toLowerCase(), from: String(cursor) } })
+    });
+    const json = await res.json();
+    if (json.errors) throw new Error(json.errors[0].message);
+    const rows = json.data.Commitment.map(toLeaf);
+    out.push(...rows);
+    if (rows.length < 1e3) break;
+    cursor = rows[rows.length - 1].index + 1;
+  }
+  return out;
+}
+async function fetchLeavesFromRelayer(relayerUrl, pool, from = 0) {
+  const res = await fetch(`${relayerUrl.replace(/\/$/, "")}/commitments?pool=${pool}&from=${from}`);
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.error || `relayer /commitments failed (${res.status})`);
+  return { leaves: json.commitments.map(toLeaf), synced: !!json.synced };
+}
+function mergeLeaves(known, incoming) {
+  const byIndex = /* @__PURE__ */ new Map();
+  for (const l of known) byIndex.set(l.index, l);
+  for (const l of incoming) byIndex.set(l.index, l);
+  const out = [];
+  for (let i = 0; byIndex.has(i); i++) out.push(byIndex.get(i));
+  return out;
+}
+async function treeFromLeaves(leaves) {
+  const tree = new MerkleTree();
+  for (const l of leaves) await tree.insert(l.commitment);
+  return tree;
+}
+async function scanLeaves(leaves, keys) {
+  const notes = [];
+  for (const l of leaves) {
+    if (!l.memo || l.memo === "0x") continue;
+    const memo = l.memo.startsWith("0x") ? l.memo : `0x${l.memo}`;
+    let opened;
+    try {
+      opened = readMemo(keys.encPriv, memo);
+    } catch {
+      opened = null;
+    }
+    if (!opened || opened.amount === 0n) continue;
+    const note = { amount: opened.amount, blinding: opened.blinding, pubKey: keys.pubKey, index: l.index };
+    if (await commitmentOf(note) !== l.commitment) continue;
+    const nullifier = await nullifierOf(note, keys.privKey);
+    notes.push({ ...note, commitment: l.commitment, privKey: keys.privKey, nullifier, spent: false });
+  }
+  return notes;
+}
+var IS_SPENT_ABI = [{ type: "function", name: "isSpent", stateMutability: "view", inputs: [{ type: "uint256" }], outputs: [{ type: "bool" }] }];
+async function markSpent(publicClient, pool, notes) {
+  const flags = await Promise.all(notes.map(
+    (n) => n.spent ? true : publicClient.readContract({ address: pool, abi: IS_SPENT_ABI, functionName: "isSpent", args: [n.nullifier] })
+  ));
+  return notes.map((n, i) => ({ ...n, spent: Boolean(flags[i]) }));
+}
+async function syncFromEnvio(url, pool, from = 0) {
+  return fetchLeavesFromEnvio(url, pool, from);
 }
 
 // src/store.ts
@@ -400,8 +494,211 @@ async function submitViaRelayer(relayerUrl, txArgs) {
 // src/disclose.ts
 var disclose = {};
 
+// src/client.ts
+import { erc20Abi, toHex as toHex4 } from "viem";
+import { randomBytes as randomBytes3 } from "@noble/hashes/utils";
+var DEPOSIT_TO_ABI = [{
+  type: "function",
+  name: "depositTo",
+  stateMutability: "nonpayable",
+  inputs: [{ name: "pubKey", type: "uint256" }, { name: "amount", type: "uint256" }, { name: "blinding", type: "uint256" }, { name: "encryptedOutput", type: "bytes" }],
+  outputs: [{ name: "commitment", type: "uint256" }, { name: "index", type: "uint32" }]
+}];
+var NEW_COMMITMENT_TOPIC = "0xe5b9fcee308349a880a3033e7bf8f0d7192658e7dbdaf7481ecc63f3d7addf03";
+var randomField2 = () => BigInt(toHex4(randomBytes3(31)));
+async function padGas(est) {
+  return await est * 115n / 100n;
+}
+function serializeRelayRequest(chainId, pool, proofArgs, extData) {
+  return {
+    chainId,
+    pool,
+    proof: {
+      a: proofArgs.a.map(String),
+      b: proofArgs.b.map((x) => x.map(String)),
+      c: proofArgs.c.map(String),
+      root: String(proofArgs.root),
+      publicAmount: String(proofArgs.publicAmount),
+      extDataHash: String(proofArgs.extDataHash),
+      inputNullifiers: proofArgs.inputNullifiers.map(String),
+      outputCommitments: proofArgs.outputCommitments.map(String)
+    },
+    extData: {
+      recipient: extData.recipient,
+      extAmount: String(extData.extAmount),
+      relayer: extData.relayer,
+      fee: String(extData.fee),
+      encryptedOutput1: extData.encryptedOutput1,
+      encryptedOutput2: extData.encryptedOutput2
+    }
+  };
+}
+async function relayTransaction(relayerUrl, chainId, pool, proofArgs, extData) {
+  const res = await fetch(`${relayerUrl.replace(/\/$/, "")}/relay`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(serializeRelayRequest(chainId, pool, proofArgs, extData))
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(json.error || `relay failed (${res.status})`);
+  return json;
+}
+async function relayerStatus(relayerUrl, chainId) {
+  const res = await fetch(`${relayerUrl.replace(/\/$/, "")}/status`);
+  if (!res.ok) throw new Error(`relayer unreachable (${res.status})`);
+  const json = await res.json();
+  return { relayer: json.relayer, minFee: json.chains?.[String(chainId)]?.minFee ?? {} };
+}
+var VeilPoolClient = class {
+  constructor(env, pool, keys) {
+    this.env = env;
+    this.pool = pool;
+    this.keys = keys;
+  }
+  env;
+  pool;
+  keys;
+  leaves = [];
+  notes = [];
+  scannedUpTo = 0;
+  get unspent() {
+    return this.notes.filter((n) => !n.spent);
+  }
+  get balance() {
+    return this.unspent.reduce((s, n) => s + n.amount, 0n);
+  }
+  async fetchNewLeaves() {
+    const from = this.leaves.length;
+    if (this.env.envioUrl) {
+      try {
+        return await fetchLeavesFromEnvio(this.env.envioUrl, this.pool.address, from);
+      } catch (e) {
+        console.warn("[veil] Envio unavailable, falling back to relayer:", e.message);
+      }
+    }
+    return (await fetchLeavesFromRelayer(this.env.relayerUrl, this.pool.address, from)).leaves;
+  }
+  /** Poll until the leaf source has caught up to `index` (indexers lag the chain by a block or two). */
+  async waitForLeaf(index, timeoutMs = 6e4) {
+    const start = Date.now();
+    for (; ; ) {
+      await this.sync();
+      if (this.leaves.length > index) return;
+      if (Date.now() - start > timeoutMs) throw new Error("indexer did not catch up; press refresh in a moment");
+      await new Promise((r) => setTimeout(r, 1e3));
+    }
+  }
+  async sync() {
+    const incoming = await this.fetchNewLeaves();
+    this.leaves = mergeLeaves(this.leaves, incoming);
+    if (this.leaves.length > this.scannedUpTo) {
+      const found = await scanLeaves(this.leaves.slice(this.scannedUpTo), this.keys);
+      this.notes.push(...found);
+      this.scannedUpTo = this.leaves.length;
+    }
+    this.notes = await markSpent(this.env.publicClient, this.pool.address, this.notes);
+  }
+  /**
+   * Public wallet → private balance. Uses `depositTo`, so no proof is needed:
+   * the pool computes the commitment on-chain from (amount, pubKey, blinding).
+   */
+  async deposit(walletClient, amount, onStatus = () => {
+  }) {
+    const account = walletClient.account;
+    const pc = this.env.publicClient;
+    const allowance = await pc.readContract({ address: this.pool.token, abi: erc20Abi, functionName: "allowance", args: [account.address, this.pool.address] });
+    if (allowance < amount) {
+      onStatus(`Approving ${this.pool.symbol}\u2026`);
+      const gas2 = await padGas(pc.estimateContractGas({ account, address: this.pool.token, abi: erc20Abi, functionName: "approve", args: [this.pool.address, amount] }));
+      const hash2 = await walletClient.writeContract({ address: this.pool.token, abi: erc20Abi, functionName: "approve", args: [this.pool.address, amount], gas: gas2 });
+      await pc.waitForTransactionReceipt({ hash: hash2 });
+    }
+    onStatus("Shielding into the pool\u2026");
+    const blinding = randomField2();
+    const memo = encryptNote(this.keys.encPub, amount, blinding);
+    const args = [this.keys.pubKey, amount, blinding, memo];
+    const gas = await padGas(pc.estimateContractGas({ account, address: this.pool.address, abi: DEPOSIT_TO_ABI, functionName: "depositTo", args }));
+    const hash = await walletClient.writeContract({ address: this.pool.address, abi: DEPOSIT_TO_ABI, functionName: "depositTo", args, gas });
+    const receipt = await pc.waitForTransactionReceipt({ hash });
+    if (receipt.status !== "success") throw new Error("deposit reverted");
+    const log = receipt.logs.find((l) => l.address.toLowerCase() === this.pool.address.toLowerCase() && l.topics[0] === NEW_COMMITMENT_TOPIC);
+    if (log) {
+      onStatus("Waiting for the indexer\u2026");
+      await this.waitForLeaf(Number(BigInt("0x" + log.data.slice(66, 130))));
+    }
+    return hash;
+  }
+  /** Pick inputs for `target`, merging notes through the relayer when no 1 or 2 notes cover it. */
+  async prepareInputs(target, relayer, prover, onStatus) {
+    for (let round = 0; round < 8; round++) {
+      if (this.balance < target) throw new Error(`Insufficient private balance (have ${this.balance}, need ${target})`);
+      const sel = selectInputs(this.unspent, target);
+      if (!sel.needsMerge) return sel.inputs;
+      onStatus("Combining notes first (one extra private transaction)\u2026");
+      const tree = await treeFromLeaves(this.leaves);
+      const { proofArgs, extData } = await buildMerge(sel.needsMerge, 0n, relayer, this.keys, tree, prover);
+      await relayTransaction(this.env.relayerUrl, this.env.chainId, this.pool.address, proofArgs, extData);
+      await this.sync();
+    }
+    throw new Error("Too many notes to combine; try a smaller amount");
+  }
+  /** Private balance → any veil: address. Sender, recipient and amount stay hidden. */
+  async send(to, amount, prover, onStatus = () => {
+  }) {
+    onStatus("Syncing pool\u2026");
+    await this.sync();
+    const { relayer, minFee } = await relayerStatus(this.env.relayerUrl, this.env.chainId);
+    const fee = BigInt(minFee[this.pool.address] ?? minFee[this.pool.address.toLowerCase()] ?? 0);
+    const inputs = await this.prepareInputs(amount + fee, relayer, prover, onStatus);
+    onStatus("Generating zero-knowledge proof on this device\u2026");
+    const tree = await treeFromLeaves(this.leaves);
+    const { proofArgs, extData } = await buildTransfer(to, amount, fee, relayer, inputs, this.keys, tree, prover);
+    onStatus("Relaying private transfer\u2026");
+    const res = await relayTransaction(this.env.relayerUrl, this.env.chainId, this.pool.address, proofArgs, extData);
+    await this.sync();
+    return res.txHash;
+  }
+  /**
+   * Build (but do not relay) a private payment: used by x402, where the *merchant*
+   * checks the proof and submits it. Output 0 is always the payment.
+   */
+  async preparePayment(to, amount, fee, relayer, prover, onStatus = () => {
+  }) {
+    onStatus("Syncing pool\u2026");
+    await this.sync();
+    const inputs = await this.prepareInputs(amount + fee, relayer, prover, onStatus);
+    onStatus("Generating zero-knowledge proof on this device\u2026");
+    const tree = await treeFromLeaves(this.leaves);
+    return buildTransfer(to, amount, fee, relayer, inputs, this.keys, tree, prover);
+  }
+  /** Private balance → public 0x address. */
+  async withdraw(recipient, amount, prover, onStatus = () => {
+  }) {
+    onStatus("Syncing pool\u2026");
+    await this.sync();
+    const { relayer, minFee } = await relayerStatus(this.env.relayerUrl, this.env.chainId);
+    const fee = BigInt(minFee[this.pool.address] ?? minFee[this.pool.address.toLowerCase()] ?? 0);
+    const inputs = await this.prepareInputs(amount + fee, relayer, prover, onStatus);
+    onStatus("Generating zero-knowledge proof on this device\u2026");
+    const tree = await treeFromLeaves(this.leaves);
+    const { proofArgs, extData } = await buildWithdraw(recipient, amount, fee, relayer, inputs, this.keys, tree, prover);
+    onStatus("Relaying withdrawal\u2026");
+    const res = await relayTransaction(this.env.relayerUrl, this.env.chainId, this.pool.address, proofArgs, extData);
+    await this.sync();
+    return res.txHash;
+  }
+};
+
 // src/x402.ts
-var x402 = {};
+var X402_SCHEME = "shielded";
+var b64 = (s) => btoa(s);
+var unb64 = (s) => atob(s);
+var encodeX402Header = (obj) => b64(JSON.stringify(obj));
+var decodeX402Header = (h) => JSON.parse(unb64(h));
+function buildPaymentSignature(accepted, chainId, proofArgs, extData) {
+  const req = serializeRelayRequest(chainId, accepted.extra.pool, proofArgs, extData);
+  return encodeX402Header({ x402Version: 2, accepted, payload: { proof: req.proof, extData: req.extData, paymentOutput: 0 } });
+}
 
 // src/payroll.ts
 var payroll = {};
@@ -413,23 +710,33 @@ export {
   MerkleTree,
   NETWORKS,
   VeilKeys,
+  VeilPoolClient,
   WASM_SHA256,
   Wallet,
+  X402_SCHEME,
   ZKEY_SHA256,
   buildDeposit,
+  buildMerge,
+  buildPaymentSignature,
   buildTransaction,
   buildTransfer,
   buildWithdraw,
   commitmentOf,
   createProver,
+  decodeX402Header,
   decryptNote,
   deriveEvmKey,
   disclose,
+  encodeX402Header,
   encryptNote,
+  fetchLeavesFromEnvio,
+  fetchLeavesFromRelayer,
   formatAddress,
   hashExtData,
   keysFromPrf,
   loadArtifacts,
+  markSpent,
+  mergeLeaves,
   nullifierOf,
   parse,
   parseAddress,
@@ -437,11 +744,14 @@ export {
   poseidon,
   publicAmountOf,
   readMemo,
+  relayTransaction,
+  relayerStatus,
+  scanLeaves,
   selectInputs,
+  serializeRelayRequest,
   stringify2 as stringify,
   submitDirect,
   submitViaRelayer,
   syncFromEnvio,
-  syncFromRpc,
-  x402
+  treeFromLeaves
 };

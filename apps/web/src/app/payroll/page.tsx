@@ -3,9 +3,9 @@
 import { useState } from "react";
 import { useApp } from "@/components/Providers";
 import { parseUnits } from "viem";
-import { buildTransfer, selectInputs, MerkleTree, VeilKeys } from "@veil/sdk";
+import { useEffect } from "react";
 import { getProver } from "@/lib/prover";
-import { submitToRelayer } from "@/lib/relayer";
+import { createClaimTarget } from "@/lib/veil";
 import { KindBadge, SealDots } from "@/components/ui/SealedField";
 
 type PayrollRow = {
@@ -20,18 +20,25 @@ type PayrollRow = {
   error?: string;
 };
 
-const POOL_ADDRESS = "0x57c2502f0522d2128f72ea867d2225fb15aeb1d1";
-const RELAYER_ADDRESS = "0x8335b308bc7226d2e24b51aa7a52a986b5f27e1960103700ecffc9d8fad4fa50";
+const STORE_KEY = "veil.payroll.v1";
 
 export default function PayrollPage() {
-  const { session, notes, triggerSync } = useApp();
+  const { session, triggerSync, client, balances } = useApp();
   const [currency, setCurrency] = useState<"AUSD" | "USDC">("AUSD");
   const [rows, setRows] = useState<PayrollRow[]>([
-    { id: "1", name: "Alice Dev", addressOrEmail: "veil:0x8335b308bc7226d2e24b51aa7a52a986b5f27e1960103700ecffc9d8fad4fa50", amount: "50", note: "October Engineering", status: "idle" },
-    { id: "2", name: "Bob Design", addressOrEmail: "bob@remote-contractor.io", amount: "35", note: "Brand Assets", status: "idle" },
-    { id: "3", name: "Carol Marketing", addressOrEmail: "carol@kol-agency.xyz", amount: "25", note: "Monad Metropolis KOL", status: "idle" }
+    { id: "1", name: "Alice Dev", addressOrEmail: "alice@studio.dev", amount: "5", note: "October Engineering", status: "idle" },
+    { id: "2", name: "Bob Design", addressOrEmail: "bob@remote-contractor.io", amount: "3", note: "Brand Assets", status: "idle" },
+    { id: "3", name: "Carol Marketing", addressOrEmail: "carol@kol-agency.xyz", amount: "2", note: "Monad Metropolis KOL", status: "idle" }
   ]);
   const [isRunning, setIsRunning] = useState(false);
+
+  // Crash-safe: the run (statuses, tx hashes, claim links) is kept in this browser and resumes after a reload.
+  useEffect(() => {
+    try { const saved = localStorage.getItem(STORE_KEY); if (saved) setRows(JSON.parse(saved)); } catch {}
+  }, []);
+  useEffect(() => {
+    try { localStorage.setItem(STORE_KEY, JSON.stringify(rows.map(r => (r.status === "idle" || r.status === "sent" || r.status === "error") ? r : { ...r, status: "idle" }))); } catch {}
+  }, [rows]);
   const [currentIdx, setCurrentIdx] = useState<number | null>(null);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -63,77 +70,42 @@ export default function PayrollPage() {
   };
 
   const totalAmount = rows.reduce((acc, r) => acc + (parseFloat(r.amount) || 0), 0);
-  const totalNotesBalance = notes.reduce((acc, n) => acc + (n.spent ? 0n : n.amount), 0n);
+  const totalNotesBalance = balances[currency];
   const formattedBalance = Number(totalNotesBalance) / 1_000_000;
 
   const runSequentialPayroll = async () => {
-    if (!session || isRunning) return;
+    const c = client(currency);
+    if (!session || isRunning || !c) return;
     setIsRunning(true);
-
     try {
       const prover = await getProver();
-      const tree = new MerkleTree();
-      for (const n of notes) {
-        if (n.commitment) await tree.insert(n.commitment);
-      }
-
       for (let i = 0; i < rows.length; i++) {
         const row = rows[i];
-        if (row.status === "sent") continue;
+        if (row.status === "sent") continue; // resume: rows already paid are skipped
 
         setCurrentIdx(i);
         setRows(prev => prev.map((r, idx) => idx === i ? { ...r, status: "preparing", error: undefined } : r));
-
         try {
           const amountAtomics = parseUnits(row.amount, 6);
-          const available = notes.filter(n => !n.spent);
-          const selection = selectInputs(available, amountAtomics);
-
-          let targetVeilAddress = row.addressOrEmail;
-          let generatedClaimLink: string | undefined = undefined;
-
-          if (!row.addressOrEmail.startsWith("veil:0x")) {
-            const seed = crypto.getRandomValues(new Uint8Array(32));
-            const claimKeys = await VeilKeys.fromSeed(seed);
-            targetVeilAddress = `veil:0x${claimKeys.pubKey.toString(16).padStart(64, "0")}${Buffer.from(claimKeys.encPub).toString("hex")}`;
-            const seedHex = Buffer.from(seed).toString("hex");
-            generatedClaimLink = `${window.location.origin}/claim#${seedHex}`;
+          let target = row.addressOrEmail.trim();
+          let claimLink: string | undefined;
+          if (!target.startsWith("veil:")) {
+            const claim = await createClaimTarget();
+            target = claim.address;
+            claimLink = claim.link;
           }
-
-          setRows(prev => prev.map((r, idx) => idx === i ? { ...r, status: "proving" } : r));
-
-          const { proofArgs, extData } = await buildTransfer(
-            targetVeilAddress,
-            amountAtomics,
-            0n,
-            RELAYER_ADDRESS,
-            selection.inputs,
-            session.keys.main,
-            tree,
-            prover
-          );
-
-          setRows(prev => prev.map((r, idx) => idx === i ? { ...r, status: "submitting" } : r));
-
-          const res = await submitToRelayer(POOL_ADDRESS, proofArgs, extData);
-
-          setRows(prev => prev.map((r, idx) => idx === i ? {
-            ...r,
-            status: "sent",
-            txHash: res?.txHash || "relayed",
-            claimLink: generatedClaimLink
-          } : r));
-
-          await triggerSync();
+          // Save the claim link before paying, so a crash mid-payment never loses it.
+          setRows(prev => prev.map((r, idx) => idx === i ? { ...r, status: "proving", claimLink } : r));
+          const txHash = await c.send(target, amountAtomics, prover, (m) => {
+            if (m.startsWith("Relaying")) setRows(prev => prev.map((r, idx) => idx === i ? { ...r, status: "submitting" } : r));
+          });
+          setRows(prev => prev.map((r, idx) => idx === i ? { ...r, status: "sent", txHash, claimLink } : r));
         } catch (err: any) {
           console.error(`Row ${i} failed:`, err);
-          setRows(prev => prev.map((r, idx) => idx === i ? {
-            ...r,
-            status: "error",
-            error: err.shortMessage || err.message || "Failed"
-          } : r));
+          setRows(prev => prev.map((r, idx) => idx === i ? { ...r, status: "error", error: err.shortMessage || err.message || "Failed" } : r));
         }
       }
+      await triggerSync();
     } finally {
       setIsRunning(false);
       setCurrentIdx(null);
