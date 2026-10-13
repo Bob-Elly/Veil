@@ -104,6 +104,7 @@ node e2e/verify-testnet.mjs                # proves the deployed testnet verifie
 |---|---|
 | Shielded pools (USDC, AUSD), Groth16 verifier, Poseidon | Deployed on Monad testnet (table above); verifier checked against the shipped zkey |
 | Passkey key tree (Mera PRF) · shield · private send · claim links · cash out · payroll | Working end to end (browser-tested with a virtual passkey on a local chain) |
+| **Real Monad testnet run** (`node e2e/testnet-e2e.mjs`) | Shield [0x43ea…](https://testnet.monadvision.com/tx/0x43ea73ac7ae6dfdc59c574450c042b5c055ec96358ac4374c328c700d11ee6eb) · private send [0x1dab…](https://testnet.monadvision.com/tx/0x1dab2267afc0e058d3e4a0f3862346161a418726f06abfeee72b9db14b677bc0) · cash out to a fresh address [0xe5c6…](https://testnet.monadvision.com/tx/0xe5c6f3560c8d0093226668ded38d65acdc5eff8fe45a7af1f30d17e3950772d6), ~3 s each |
 | Relayer (gas relay, gas drip, commitment cache) | Working; run it yourself with a funded key |
 | MetaMask Agent Wallet plugin (`mm veil …`) incl. private x402 | Working (e2e with stub wallet context) |
 | x402 `shielded` scheme + demo merchant | Working (e2e) |
